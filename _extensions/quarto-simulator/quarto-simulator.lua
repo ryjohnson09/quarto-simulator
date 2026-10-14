@@ -150,7 +150,7 @@ local function add_dependency(meta)
   end
   quarto.doc.add_html_dependency({
     name = "quarto-simulator",
-    version = "0.2.0",
+    version = "0.3.0",
     scripts = { { path = "resources/quarto-simulator.js", attribs = { type = "module" } } },
     stylesheets = { "resources/quarto-simulator.css" },
     resources = resources
