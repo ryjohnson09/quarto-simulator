@@ -1,0 +1,218 @@
+---
+title: "Your first Quarto document"
+subtitle: "Proof of concept: teaching Quarto basics with `quarto-simulator`"
+engine: markdown
+filters:
+  - quarto-simulator
+quarto-simulator:
+  column: page-inset-right
+---
+
+A Quarto document is plain text with three parts: a **YAML header** that sets
+document options, **markdown** prose, and **code cells** that run when the
+document renders.
+
+Each playground below has an editor on the left and the rendered document on
+the right. The preview is a simulation of Quarto that runs in your browser,
+made for practising the basics. Edit the text, then press **▶ Render** (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>
+\+ <kbd>Shift</kbd> + <kbd>K</kbd>, the same shortcut RStudio uses) to see the result.
+Everything runs in your browser.
+
+## Explore
+
+Try changing the title, adding `toc: true` to the YAML header, or changing
+`cars` to `pressure` in the code cell.
+
+````{quarto-simulator}
+---
+title: "Stopping distances"
+author: "Your Name"
+date: today
+---
+
+## Introduction
+
+The `cars` dataset records the speed of cars and the distances taken to stop.
+It has `{r} nrow(cars)` rows.
+
+::: {.callout-note}
+These data were recorded in the 1920s.
+:::
+
+## Analysis
+
+```{r}
+#| label: fig-cars
+#| fig-cap: "Stopping distance increases with speed."
+plot(cars, xlab = "Speed (mph)", ylab = "Stopping distance (ft)")
+abline(lm(dist ~ speed, data = cars), col = "steelblue")
+```
+
+As @fig-cars shows, faster cars take longer to stop.
+````
+
+## Exercise 1: Document options and callouts
+
+The YAML header controls how the whole document renders. Update this document so that:
+
+1. It has a **table of contents**.
+2. The sentence about practice is inside a **tip callout**.
+
+````{quarto-simulator}
+#| exercise: ex-toc
+---
+title: "Learning Quarto"
+---
+
+## Why Quarto?
+
+Quarto weaves together prose and code.
+
+## Getting started
+
+Practice makes perfect: render early and often.
+
+## Next steps
+
+Try a callout of your own.
+````
+
+::: {.hint exercise="ex-toc"}
+A table of contents is a document option, so it goes in the YAML header between the `---` lines.
+:::
+
+::: {.hint exercise="ex-toc"}
+A callout is a fenced div with a class: start it with `::: {.callout-tip}` and end it with `:::`.
+:::
+
+::: {.solution exercise="ex-toc"}
+```markdown
+---
+title: "Learning Quarto"
+toc: true
+---
+
+## Why Quarto?
+
+Quarto weaves together prose and code.
+
+## Getting started
+
+::: {.callout-tip}
+Practice makes perfect: render early and often.
+:::
+
+## Next steps
+
+Try a callout of your own.
+```
+:::
+
+```{quarto-simulator-check}
+#| exercise: ex-toc
+if (result.yaml.toc !== true) {
+  return fail("The document doesn't have a table of contents yet. Which YAML option turns one on?")
+}
+const tip = result.html.querySelector(".callout-tip")
+if (!tip) {
+  return fail("There's no tip callout yet. Wrap the practice sentence in `::: {.callout-tip}` … `:::`.")
+}
+if (!tip.textContent.includes("Practice makes perfect")) {
+  return fail("You have a tip callout, but it doesn't contain the sentence about practice.")
+}
+return pass("Your document has a table of contents and a tip callout.")
+```
+
+## Exercise 2: Code cell options
+
+Cell options start with `#|` and go at the top of a code cell. Change the cell so that:
+
+1. The **code is hidden** and only the plot shows.
+2. The plot is a **cross-referenceable figure**: give it a label starting with `fig-` and a caption.
+3. The sentence below the cell **refers to the figure** with `@`.
+
+````{quarto-simulator}
+#| exercise: ex-cells
+---
+title: "Air pressure"
+---
+
+```{r}
+plot(pressure, type = "b")
+```
+
+The plot above shows that vapor pressure rises steeply with temperature.
+````
+
+::: {.hint exercise="ex-cells"}
+`#| echo: false` hides a cell's code. Figures need both `#| label: fig-something` and `#| fig-cap: "..."`.
+:::
+
+::: {.hint exercise="ex-cells"}
+Refer to a figure by its label, for example `@fig-pressure`. Quarto replaces it with "Figure 1".
+:::
+
+::: {.solution exercise="ex-cells"}
+````markdown
+---
+title: "Air pressure"
+---
+
+```{r}
+#| label: fig-pressure
+#| fig-cap: "Vapor pressure of mercury by temperature."
+#| echo: false
+plot(pressure, type = "b")
+```
+
+@fig-pressure shows that vapor pressure rises steeply with temperature.
+````
+:::
+
+```{quarto-simulator-check}
+#| exercise: ex-cells
+const cell = result.cells.find(c => c.lang === "r")
+if (!cell) return fail("The R code cell is missing. Did it get deleted?")
+if (cell.options.echo !== false) return fail("The code is still showing. Which cell option hides it?")
+const figure = result.html.querySelector('[id^="fig-"]')
+if (!figure) return fail("The plot isn't a cross-referenceable figure yet. Give the cell a `label` that starts with `fig-`.")
+if (!cell.options["fig-cap"]) return fail("Add a `fig-cap` so the figure has a caption.")
+if (!result.html.querySelector("a.quarto-xref")) {
+  return fail("The text doesn't refer to the figure yet. Use `@` followed by the figure's label.")
+}
+return pass("The code is hidden, and the text refers to the figure by number.")
+```
+
+## Exercise 3: Fix the YAML
+
+YAML is strict about indentation and punctuation. This document won't render.
+Press **▶ Render**, read the error message, and fix the header.
+
+````{quarto-simulator}
+#| exercise: ex-yaml
+---
+title: "Quarterly report
+author: Jordan
+format:
+  html:
+  toc: true
+---
+
+## Summary
+
+Sales were up this quarter.
+````
+
+::: {.hint exercise="ex-yaml"}
+There are two problems. Check that every quote you open is closed. Options under `html:` need to be indented further than `html:` itself.
+:::
+
+```{quarto-simulator-check}
+#| exercise: ex-yaml
+if (result.yaml.title !== "Quarterly report") return fail("Check the title: it should read `Quarterly report`.")
+if (result.yaml.format?.html?.toc !== true) {
+  return fail("It renders now, but `toc: true` isn't an option of `html:` yet. Indent it under `html:`.")
+}
+if (!result.html.querySelector("nav#TOC")) return fail("The table of contents isn't showing yet.")
+return pass("The YAML is valid, and the table of contents appears.")
+```

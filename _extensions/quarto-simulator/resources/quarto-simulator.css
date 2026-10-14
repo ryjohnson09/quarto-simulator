@@ -1,0 +1,300 @@
+.quarto-simulator {
+  --qp-border: #d0d7de;
+  --qp-muted: #57606a;
+  --qp-header-bg: #f6f8fa;
+  --qp-accent: #447099;
+  margin: 1.5rem 0;
+  border: 1px solid var(--qp-border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.9rem;
+}
+
+.quarto-simulator .qp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--qp-border);
+  background: var(--qp-header-bg);
+  border-radius: 6px 6px 0 0;
+}
+
+.quarto-simulator .qp-toolbar-right {
+  display: flex;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.quarto-simulator .qp-btn {
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--qp-border);
+  border-radius: 4px;
+  background: #fff;
+  color: #24292f;
+  cursor: pointer;
+}
+
+.quarto-simulator .qp-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.quarto-simulator .qp-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.quarto-simulator .qp-btn-primary {
+  background: var(--qp-accent);
+  border-color: var(--qp-accent);
+  color: #fff;
+}
+
+.quarto-simulator .qp-btn-primary:hover:not(:disabled) {
+  background: #375a7f;
+}
+
+.quarto-simulator .qp-btn-check {
+  border-color: #1a7f37;
+  color: #1a7f37;
+}
+
+.quarto-simulator .qp-status {
+  color: var(--qp-muted);
+  font-size: 0.8rem;
+  margin-left: 0.25rem;
+}
+
+.quarto-simulator .qp-status.qp-busy::before {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.4em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.05em;
+  animation: qp-spin 0.8s linear infinite;
+}
+
+.quarto-simulator .qp-status.qp-error {
+  color: #cf222e;
+}
+
+@keyframes qp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.quarto-simulator .qp-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.quarto-simulator .qp-panes.qp-layout-vertical {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 900px) {
+  .quarto-simulator .qp-panes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.quarto-simulator .qp-pane {
+  display: flex;
+  flex-direction: column;
+  height: var(--qp-height, 460px);
+  min-width: 0;
+  position: relative;
+}
+
+.quarto-simulator .qp-editor-pane {
+  border-right: 1px solid var(--qp-border);
+}
+
+.quarto-simulator .qp-layout-vertical .qp-editor-pane {
+  border-right: none;
+  border-bottom: 1px solid var(--qp-border);
+}
+
+@media (max-width: 900px) {
+  .quarto-simulator .qp-editor-pane {
+    border-right: none;
+    border-bottom: 1px solid var(--qp-border);
+  }
+}
+
+.quarto-simulator .qp-pane-header {
+  flex: none;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-family: var(--bs-font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+  color: var(--qp-muted);
+  border-bottom: 1px solid var(--qp-border);
+}
+
+.quarto-simulator .qp-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.quarto-simulator .qp-editor .cm-editor {
+  height: 100%;
+  font-size: 0.85rem;
+}
+
+.quarto-simulator .qp-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.quarto-simulator .qp-editor .cm-scroller {
+  font-family: var(--bs-font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+
+/* Executable code cells are shaded, as in Positron. */
+.quarto-simulator {
+  --qp-cell-bg: #e6e6e6;
+  --qp-cell-active-bg: #d9d9d9;
+}
+
+.quarto-simulator .qp-editor .cm-line.cm-qp-cell {
+  background-color: var(--qp-cell-bg);
+}
+
+.quarto-simulator .qp-editor .cm-line.cm-qp-cell.cm-activeLine {
+  background-color: var(--qp-cell-active-bg);
+}
+
+.quarto-simulator .qp-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
+  transition: opacity 0.2s;
+}
+
+.quarto-simulator .qp-frame.qp-stale {
+  opacity: 0.35;
+}
+
+.quarto-simulator .qp-placeholder {
+  position: absolute;
+  inset: 2rem 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--qp-muted);
+  pointer-events: none;
+}
+
+/* Render log, styled after Quarto's console output. */
+.quarto-simulator .qp-log {
+  border-top: 1px solid var(--qp-border);
+  background: #1f2328;
+  color: #e6edf3;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--bs-font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.8rem;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.quarto-simulator .qp-log pre {
+  margin: 0.25rem 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  white-space: pre-wrap;
+  font-size: inherit;
+}
+
+.quarto-simulator .qp-log-error strong {
+  color: #ff7b72;
+}
+
+.quarto-simulator .qp-log-warning strong {
+  color: #e3b341;
+}
+
+.quarto-simulator .qp-log-warning + .qp-log-warning,
+.quarto-simulator .qp-log-error + .qp-log-warning {
+  margin-top: 0.35rem;
+}
+
+.quarto-simulator .qp-log-warning code {
+  color: inherit;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0 0.2em;
+  border-radius: 3px;
+}
+
+.quarto-simulator .qp-log-detail {
+  color: #8b949e !important;
+}
+
+.quarto-simulator .qp-feedback {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-top: 1px solid var(--qp-border);
+}
+
+.quarto-simulator .qp-feedback.qp-correct {
+  background: #dafbe1;
+  color: #116329;
+}
+
+.quarto-simulator .qp-feedback.qp-incorrect {
+  background: #ffebe9;
+  color: #a40e26;
+}
+
+.quarto-simulator .qp-extras:empty {
+  display: none;
+}
+
+.quarto-simulator .qp-extras {
+  border-top: 1px solid var(--qp-border);
+  padding: 0.75rem;
+}
+
+.quarto-simulator .qp-extras > * + * {
+  margin-top: 0.75rem;
+}
+
+.quarto-simulator .qp-extras .quarto-simulator-hint,
+.quarto-simulator .qp-extras .quarto-simulator-solution {
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  border-left: 4px solid;
+}
+
+.quarto-simulator .qp-extras .quarto-simulator-hint {
+  background: #fff8c5;
+  border-color: #d4a72c;
+}
+
+.quarto-simulator .qp-extras .quarto-simulator-solution {
+  background: #ddf4ff;
+  border-color: #54aeff;
+}
+
+.quarto-simulator .qp-extras .quarto-simulator-hint > :last-child,
+.quarto-simulator .qp-extras .quarto-simulator-solution > :last-child {
+  margin-bottom: 0;
+}
+
+.quarto-simulator .qp-use-solution {
+  margin-top: 0.5rem;
+}
+
+/* Hints and solutions stay hidden until requested. */
+.quarto-simulator-hint[hidden],
+.quarto-simulator-solution[hidden] {
+  display: none;
+}

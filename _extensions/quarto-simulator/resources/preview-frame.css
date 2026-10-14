@@ -1,0 +1,61 @@
+/* Adjustments for showing a Quarto HTML page inside the playground's
+   preview pane, which is much narrower than a browser window. */
+
+body {
+  padding: 1rem 1.25rem 2rem;
+}
+
+#quarto-content.page-columns {
+  display: block;
+}
+
+main.content {
+  max-width: 50rem;
+  margin: 0 auto;
+}
+
+/* The table of contents sits in the right margin in a full-width Quarto
+   page; the preview has no margin, so show it at the top, as Quarto does
+   with `toc-location: body`. */
+nav#TOC {
+  display: block;
+  border-left: 2px solid var(--bs-border-color, #dee2e6);
+  padding-left: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+
+nav#TOC #toc-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-top: 0;
+}
+
+nav#TOC ul {
+  list-style: none;
+  padding-left: 0.75rem;
+  margin-bottom: 0;
+}
+
+nav#TOC > ul {
+  padding-left: 0;
+}
+
+nav#TOC a {
+  text-decoration: none;
+}
+
+/* Quarto wraps code in a copy-button scaffold that absorbs the <pre>
+   margin; pandoc's plain output needs the margin moved outside the box. */
+div.sourceCode > pre.sourceCode {
+  margin-bottom: 0;
+}
+
+div.sourceCode {
+  margin-bottom: 1rem;
+}
+
+.cell-output-display img {
+  max-width: 100%;
+  height: auto;
+}

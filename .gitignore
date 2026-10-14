@@ -1,0 +1,11 @@
+# Rendered output
+/index.html
+/index_files/
+/.quarto/
+
+# Build tooling (pandoc-wasm alone is ~58 MB here)
+tools/vendor/node_modules/
+
+.DS_Store
+
+**/*.quarto_ipynb
