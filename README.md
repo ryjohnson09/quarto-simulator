@@ -151,8 +151,9 @@ learner to the error.
 ## How it works
 
 The playground runs **Quarto's own Lua filters, reader, template and data
-directory** inside the official [pandoc WebAssembly build](https://github.com/pandoc/pandoc-wasm),
-called the same way `quarto render` calls pandoc. The parts of Quarto that
+directory** inside the official [pandoc WebAssembly build](https://github.com/pandoc/pandoc-wasm).
+`pandoc.wasm` runs as a command-line program, with the arguments,
+environment variables and files that `quarto render` gives pandoc. The parts of Quarto that
 are TypeScript or R (the command-line tool and knitr) can't run in the
 browser, so those steps are reimplemented in JavaScript:
 
@@ -185,14 +186,21 @@ Quarto installation, using a logging stand-in for pandoc (`QUARTO_PANDOC`). It
 captures exactly what Quarto passed to pandoc: defaults, filter parameters,
 the patched template and the include files. It then packs these with Quarto's
 Lua files into `resources/quarto-runtime.json` (about 2 MB, or 420 KB
-gzipped) and copies the page assets to `resources/quarto-libs/`. Running in
-wasm needs three adaptations:
+gzipped) and copies the page assets to `resources/quarto-libs/`.
 
-* pandoc-wasm doesn't put the data directory on Lua's module path, so the
-  data directory's modules are also placed at the file-system root.
-* WASI fixes environment variables at startup, so a short preamble added to
-  `init.lua` makes `os.getenv()` read `/quarto-env.json`. The renderer
-  rewrites that file before each render.
+Each render starts a fresh `pandoc.wasm` instance through the
+[WASI shim](https://github.com/bjorn3/browser_wasi_shim), much as Quarto starts
+a pandoc process: `pandoc --defaults defaults.yaml`, with Quarto's
+environment variables (`QUARTO_FILTER_PARAMS` and others, plus `LUA_PATH` for
+the data directory) and an in-memory file system. The compiled module is
+reused, so starting an instance takes about 25 ms. Running in the browser
+needs two adaptations:
+
+* Quarto's R syntax definition (`r.xml`) is renamed from "R Script" to "r".
+  pandoc looks up a code block's language by name first, and otherwise by
+  file extension, which decodes every built-in syntax definition, costing
+  about a second in wasm on every render. The highlighting rules are
+  unchanged.
 * The preview iframe is sandboxed, so `quarto.js` is bundled into a classic
   script (sandboxed frames can't load module scripts without CORS), and Web
   Storage is replaced with an in-memory store.
@@ -215,7 +223,11 @@ npm run build    # vendor.js: CodeMirror, js-yaml, the renderer and post-process
 All playgrounds on a page share one pandoc instance and one R session, which
 load on first use. The first render downloads pandoc (about 16 MB gzipped),
 plus webR if the document has R code. After that, a render takes about
-0.5 seconds, most of it spent loading Quarto's 25,000 lines of Lua.
+0.5 seconds, most of it spent loading Quarto's 25,000 lines of Lua. A code
+block whose language pandoc only knows by an alias or not at all (`md`,
+`py`, `sh`, `js`, `text`, `mermaid`…) adds about a second, for the
+syntax-definition lookup described above. Full names (`markdown`, `python`,
+`bash`, `javascript`) don't.
 Learners' edits are saved in `localStorage`, and **Reset** restores the
 starter document.
 
@@ -247,7 +259,7 @@ _extensions/quarto-simulator/
     vendor.js                     generated bundle
 tools/vendor/
   build-quarto-runtime.mjs        captures a real Quarto render into the runtime bundle
-  quarto-pandoc.js                runs pandoc-wasm the way Quarto runs pandoc
+  quarto-pandoc.js                runs pandoc.wasm the way Quarto runs pandoc
   quarto-postprocess.js           port of Quarto's HTML post-processing
   entry.js                        vendor.js entry point
 index.qmd                         sample lesson
@@ -261,11 +273,8 @@ MIT, see [LICENSE](LICENSE). Exceptions:
   [quarto-cli](https://github.com/quarto-dev/quarto-cli) (MIT license) and the
   libraries it ships, such as Bootstrap, under their own licenses.
 * `pandoc.wasm` (GPL-2.0-or-later) is not included. It is downloaded at
-  runtime.
-* `tools/vendor/quarto-pandoc.js` is adapted from pandoc-wasm's loader
-  (`src/core.js`, GPL-2.0-or-later) and is bundled into `vendor.js`. This
-  is unresolved: the file needs to be relicensed by pandoc-wasm or rewritten
-  independently.
+  runtime and run as a separate program, through its standard WASI command
+  interface. No pandoc-wasm JavaScript is used.
 
 ## Open questions before production use
 

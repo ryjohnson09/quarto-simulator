@@ -2,7 +2,7 @@
   "name": "quarto-simulator-vendor",
   "private": true,
   "type": "module",
-  "description": "Builds the third-party bundle (CodeMirror, js-yaml, pandoc-wasm loader) used by the quarto-simulator extension.",
+  "description": "Builds the bundle (CodeMirror, js-yaml, the WASI shim and the renderer) used by the quarto-simulator extension.",
   "scripts": {
     "build": "esbuild entry.js --bundle --minify --format=esm --legal-comments=external --outfile=../../_extensions/quarto-simulator/resources/vendor.js",
     "build-quarto-runtime": "node build-quarto-runtime.mjs"
@@ -20,7 +20,6 @@
     "@lezer/highlight": "^1.2.5",
     "codemirror": "^6.0.2",
     "esbuild": "^0.25.12",
-    "js-yaml": "^4.3.2",
-    "pandoc-wasm": "^1.1.0"
+    "js-yaml": "^4.3.2"
   }
 }

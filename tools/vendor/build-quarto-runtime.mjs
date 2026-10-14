@@ -89,25 +89,7 @@ const datadir = join(sharePath, "pandoc", "datadir")
 for (const name of readdirSync(datadir)) {
   if (!name.endsWith(".lua") || name.startsWith("luacov")) continue
   add(`${VSHARE}/pandoc/datadir/${name}`, join(datadir, name))
-  // pandoc-wasm does not put the data directory on Lua's module path, but it
-  // does search the working directory (the root), so mirror modules there.
-  add(`/${name}`, join(datadir, name))
 }
-// WASI fixes the environment when the runtime starts, so serve Quarto's
-// os.getenv() calls from a file the renderer rewrites before each render.
-files[`${VSHARE}/pandoc/datadir/init.lua`] = `-- quarto-simulator: os.getenv() reads /quarto-env.json
-do
-  local f = io.open("/quarto-env.json", "r")
-  local vars = f and pandoc.json.decode(f:read("a")) or {}
-  if f then f:close() end
-  local getenv = os.getenv
-  os.getenv = function(name)
-    local v = vars[name]
-    if v ~= nil then return v end
-    return getenv(name)
-  end
-end
-` + files[`${VSHARE}/pandoc/datadir/init.lua`]
 
 const defaults = jsyaml.load(remap(readFileSync(join(session, defaultsFile), "utf8")))
 // Any installation file the defaults point at (highlighting theme, syntax
@@ -117,6 +99,15 @@ const sharePaths = value => typeof value === "string" ? (value.startsWith(VSHARE
 for (const [key, value] of Object.entries(defaults)) {
   if (key === "filters" || key === "from") continue
   for (const p of sharePaths(value)) add(p, join(sharePath, p.slice(VSHARE.length + 1)))
+}
+// pandoc finds a highlighter for an `r` code block by name, and failing
+// that by file extension, which decodes every built-in syntax definition
+// (about a second in wasm, on every render). Naming Quarto's R definition
+// "r" makes the lookup direct; the highlighting rules are unchanged.
+const rSyntax = `${VSHARE}/pandoc/syntax-definitions/r.xml`
+if (files[rSyntax]) {
+  files[rSyntax] = files[rSyntax].replace(/(<language\b[^>]*\bname=")R Script"/, '$1r"')
+  if (!files[rSyntax].includes('name="r"')) throw new Error("Could not rename the R syntax definition")
 }
 // Remaining session files: the patched template and its partials, include
 // files and the (empty) notebook context.

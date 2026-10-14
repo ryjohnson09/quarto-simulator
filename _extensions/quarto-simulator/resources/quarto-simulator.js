@@ -640,13 +640,13 @@ async function renderDocument(source, setStatus) {
 
   setStatus("Rendering…")
   const quarto = await quartoReady
-  const result = quarto.render({
+  const result = await quarto.render({
     markdown: markdownParts.join("\n") + "\n",
     ...quartoInputs(options, needsR, quarto.bundle)
   })
   const messages = quartoMessages(result)
   if (!result.html || messages.error) {
-    throw new RenderError("Quarto could not render this document.", messages.error || result.stderr)
+    throw new RenderError("Quarto could not render this document.", messages.error)
   }
   notices.push(...messages.warnings)
 
@@ -708,21 +708,19 @@ const PARAM_OPTIONS = [
   "number-sections", "number-depth"
 ]
 
-// Quarto's filters print `WARNING (file:line) message` and `ERROR ...` lines.
+// pandoc's stderr: Quarto's filters print `WARNING (file:line) message` and
+// `ERROR ...` lines, pandoc itself prints `[WARNING] message`, and a failed
+// render ends with pandoc's error message.
 function quartoMessages(result) {
-  const clean = line => line
-    .replace(/\x1b\[[0-9;]*m/g, "")
-    .replace(/^(WARNING|ERROR|INFO) \([^)]*\)\s*/, "")
-    .trim()
-  const warnings = []
-  for (const line of result.log) {
-    if (/^WARNING/.test(line.replace(/\x1b\[[0-9;]*m/g, ""))) warnings.push(clean(line))
+  const plain = line => line.replace(/\x1b\[[0-9;]*m/g, "")
+  const clean = line => plain(line).replace(/^(\[WARNING\]|(WARNING|ERROR|INFO) \([^)]*\))\s*/, "").trim()
+  const isWarning = line => /^(\[WARNING\]|WARNING)/.test(plain(line))
+  const warnings = result.stderr.filter(isWarning).map(clean)
+  const errors = result.stderr.filter(line => /^ERROR/.test(plain(line))).map(clean)
+  if (result.exitCode !== 0 && errors.length === 0) {
+    errors.push(...result.stderr.filter(line => !isWarning(line)).map(plain))
   }
-  for (const warning of result.warnings) {
-    if (warning.verbosity === "WARNING") warnings.push(warning.message || warning.pretty)
-  }
-  const error = result.stderr.trim() || result.log.filter(l => /^ERROR/.test(l.replace(/\x1b\[[0-9;]*m/g, ""))).map(clean).join("\n")
-  return { warnings: [...new Set(warnings)], error }
+  return { warnings: [...new Set(warnings)], error: errors.join("\n").trim() }
 }
 
 // Preview frame ---------------------------------------------------------------------------------
