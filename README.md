@@ -253,12 +253,19 @@ tools/vendor/
 index.qmd                         sample lesson
 ```
 
-Quarto's files in `quarto-runtime.json` and `quarto-libs/` are from
-[quarto-cli](https://github.com/quarto-dev/quarto-cli) (MIT license).
-`pandoc.wasm` (GPL-2.0-or-later) is downloaded at runtime. However,
-`tools/vendor/quarto-pandoc.js` is adapted from pandoc-wasm's GPL-licensed
-loader (`src/core.js`), and it is bundled into `vendor.js`. Check the
-licensing before distributing.
+## License
+
+MIT, see [LICENSE](LICENSE). Exceptions:
+
+* Quarto's files in `quarto-runtime.json` and `quarto-libs/` are from
+  [quarto-cli](https://github.com/quarto-dev/quarto-cli) (MIT license) and the
+  libraries it ships, such as Bootstrap, under their own licenses.
+* `pandoc.wasm` (GPL-2.0-or-later) is not included. It is downloaded at
+  runtime.
+* `tools/vendor/quarto-pandoc.js` is adapted from pandoc-wasm's loader
+  (`src/core.js`, GPL-2.0-or-later) and is bundled into `vendor.js`. This
+  is unresolved: the file needs to be relicensed by pandoc-wasm or rewritten
+  independently.
 
 ## Open questions before production use
 
