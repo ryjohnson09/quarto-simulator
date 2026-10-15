@@ -47,12 +47,16 @@ The project's tests compare the simulator with native Quarto 1.10.19:
 
 Known differences in the final page:
 
-- The table of contents stays in the body (like `toc-location: body`),
-  because the preview pane has no margin.
 - Three steps of Quarto's HTML post-processing aren't ported yet: margin
   columns (`column-margin`), code annotation markup, and the footnotes
   appendix. These render, but not exactly as Quarto lays them out.
 - R output is an imitation of knitr; see [R code](r-code.qmd).
+
+The page layout is Quarto's own, so it responds to the preview's width as a
+browser window would. The table of contents, for example, sits in the right
+margin (or wherever `toc-location` says) and, as in Quarto, is hidden when
+the page is narrower than 768 pixels. A `layout: horizontal` preview usually
+is; the default vertical layout is wide enough in a typical lesson.
 
 ## Not supported
 

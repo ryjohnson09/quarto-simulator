@@ -2,11 +2,11 @@
 //
 // Ported from Quarto CLI 1.9 (MIT license): htmlFormatPostprocessor and
 // bootstrapHtmlPostprocessor in src/format/html/. Only the steps that apply
-// to a single standalone HTML document are included. One deliberate
-// difference: the table of contents stays in the document body (as with
-// `toc-location: body`) because the preview pane has no margin to hold it.
+// to a single standalone HTML document are included.
+//
+// `toc` holds the document's `toc-location`, `toc-depth` and `toc-expand`.
 
-export function postprocess(doc, { codeCopy = true, anchors = true, copyTooltip = "Copy to Clipboard" } = {}) {
+export function postprocess(doc, { codeCopy = true, anchors = true, copyTooltip = "Copy to Clipboard", toc: tocOptions = {} } = {}) {
   // htmlFormatPostprocessor -------------------------------------------------------
 
   for (const code of doc.querySelectorAll("pre.sourceCode")) {
@@ -76,9 +76,40 @@ export function postprocess(doc, { codeCopy = true, anchors = true, copyTooltip 
     img.classList.add("img-fluid")
   }
 
+  // Quarto's before-body template holds a #quarto-toc-target in the sidebar
+  // for the TOC's location; the runtime's template was captured without one,
+  // so add it here.
+  const tocLocation = tocOptions.location ?? "right"
+  const content = doc.getElementById("quarto-content")
+  if (doc.querySelector('nav[role="doc-toc"]') && content) {
+    const target = doc.createElement("div")
+    target.id = "quarto-toc-target"
+    if (tocLocation === "left" || tocLocation === "left-body") {
+      content.classList.add("toc-left")
+      const sidebar = doc.createElement("div")
+      sidebar.id = "quarto-sidebar-toc-left"
+      sidebar.className = "sidebar toc-left"
+      sidebar.append(target)
+      content.prepend(sidebar)
+    } else if (tocLocation === "right" || tocLocation === "right-body") {
+      doc.getElementById("quarto-margin-sidebar")?.append(target)
+    }
+  }
+
   const toc = doc.querySelector('nav[role="doc-toc"]')
-  if (toc) {
+  const tocTarget = doc.getElementById("quarto-toc-target")
+  if (toc && tocTarget) {
+    if (tocLocation.includes("-body")) {
+      const bodyToc = toc.cloneNode(true)
+      bodyToc.id = "TOC-body"
+      bodyToc.querySelector(".toc-actions")?.remove()
+      toc.parentElement?.insertBefore(bodyToc, toc)
+    }
     toc.classList.add("toc-active")
+    const expanded = tocOptions.expand
+    if (expanded !== undefined) {
+      toc.setAttribute("data-toc-expanded", expanded === true ? 99 : expanded ? expanded : -1)
+    }
     doc.querySelectorAll('nav#TOC[role="doc-toc"] > ul a').forEach((link, i) => {
       link.classList.add("nav-link")
       if (i === 0) link.classList.add("active")
@@ -86,8 +117,15 @@ export function postprocess(doc, { codeCopy = true, anchors = true, copyTooltip 
         link.setAttribute("data-scroll-target", link.getAttribute("href")?.replaceAll(":", "\\:"))
       }
     })
+    const depth = tocOptions.depth || 3
+    if (depth > 1) {
+      for (const ul of toc.querySelectorAll("ul ".repeat(depth - 1).trim())) ul.classList.add("collapse")
+    }
+    toc.remove()
+    tocTarget.replaceWith(toc)
+  } else {
+    tocTarget?.remove()
   }
-  doc.getElementById("quarto-toc-target")?.closest("#quarto-margin-sidebar")?.remove()
 
   const inCell = el => el.closest(".cell:not(.plain)") !== null
   for (const row of doc.querySelectorAll("tbody > tr:first-child.odd")) {

@@ -151,11 +151,21 @@ for (const id of ["ex-toc", "ex-cells", "ex-python"]) {
   const before = await check(sel)
   report(/^Not quite/.test(before), `${id}: starting document is rejected`, before)
   await page.locator(`${sel} button:has-text("Show solution")`).click()
-  await page.locator(`${sel} button:has-text("Copy solution")`).click()
-  await page.waitForTimeout(500)
+  // Playgrounds above can still change height as they render, so a click can
+  // land where the button was; retry until the editor holds the solution.
+  const starting = await source(sel)
+  for (let attempt = 0; attempt < 3 && (await source(sel)) === starting; attempt++) {
+    await page.locator(`${sel} button:has-text("Copy solution")`).click()
+    await page.waitForTimeout(500)
+  }
   await idle(sel)
   const after = await check(sel)
   report(/^Correct/.test(after), `${id}: solution is accepted`, after)
+  if (id === "ex-toc") {
+    // The default vertical layout is wide enough for Quarto's margin TOC.
+    const toc = (await preview(sel)).locator("#quarto-margin-sidebar nav#TOC")
+    report(await toc.isVisible(), "ex-toc: the TOC shows in Quarto's right margin")
+  }
 }
 {
   const sel = "#quarto-simulator-ex-yaml"

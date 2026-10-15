@@ -377,7 +377,7 @@ function resolveFormat(yaml, notices) {
 
 const KNOWN_KEYS = [
   "title", "subtitle", "author", "date", "abstract", "format", "toc", "toc-title",
-  "toc-depth", "number-sections", "code-fold", "code-summary", "execute", "theme",
+  "toc-depth", "toc-location", "toc-expand", "number-sections", "code-fold", "code-summary", "execute", "theme",
   "fig-width", "fig-height", "fig-cap-location", "bibliography", "editor", "jupyter",
   "engine", "lang", "description", "categories", "keywords", "date-format"
 ]
@@ -899,7 +899,10 @@ async function renderDocument(source, setStatus, hooks = {}) {
     const index = Number(img.getAttribute("src").match(/^qp-img-(\d+)/)[1]) - 1
     if (images[index]) img.setAttribute("src", images[index])
   }
-  postprocess(page, { copyTooltip: quarto.bundle.params.language?.["copy-button-tooltip"] })
+  postprocess(page, {
+    copyTooltip: quarto.bundle.params.language?.["copy-button-tooltip"],
+    toc: { location: options["toc-location"], depth: options["toc-depth"], expand: options["toc-expand"] }
+  })
   return { page, yaml, body: source.slice(bodyStart), cells: cellResults, notices }
 }
 
@@ -1103,7 +1106,7 @@ class Playground {
       el("div", { class: "qp-pane-header", title: "A simulation of quarto render for learning; not every Quarto feature is supported." }, "Preview (simulated Quarto)"), this.placeholder, this.frame)
 
     const height = Number(opts.height) || 460
-    const panes = el("div", { class: `qp-panes qp-layout-${opts.layout === "vertical" ? "vertical" : "horizontal"}`, style: `--qp-height: ${height}px` },
+    const panes = el("div", { class: `qp-panes qp-layout-${opts.layout === "horizontal" ? "horizontal" : "vertical"}`, style: `--qp-height: ${height}px` },
       editorPane, previewPane)
 
     this.log = el("div", { class: "qp-log", hidden: "" })

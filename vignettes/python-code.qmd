@@ -51,13 +51,17 @@ scores[scores["score"] > 85]
 
 ```{python}
 #| error: true
-scores["grade"]
+int("ninety-five")
 ```
 ````
 
 As in Jupyter, a cell shows the value of its **last line**, and `display()`
 shows anything earlier. pandas tables, `IPython.display.Markdown` and other
 rich output render as HTML.
+
+The last cell fails on purpose. With `error: true`, its error appears in the
+document, as it would in Jupyter, instead of stopping the render. Without
+it, the render stops and the playground names the failed cell.
 
 ::: {.callout-tip}
 ## NumPy numbers in inline code
