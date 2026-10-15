@@ -16,6 +16,7 @@ import { r } from "@codemirror/legacy-modes/mode/r"
 import jsyaml from "js-yaml"
 import { createQuartoPandoc } from "./quarto-pandoc.js"
 import { postprocess } from "./quarto-postprocess.js"
+import { jupyterCellMarkdown, jupyterInlineMarkdown } from "./jupyter-markdown.js"
 
 // Fenced code inside the markdown gets highlighted when the info string
 // names R or Python, including Quarto's executable `{r}` form.
@@ -125,4 +126,4 @@ export function setEditorText(view, text) {
   view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } })
 }
 
-export { jsyaml, createQuartoPandoc, postprocess }
+export { jsyaml, createQuartoPandoc, postprocess, jupyterCellMarkdown, jupyterInlineMarkdown }

@@ -3,21 +3,27 @@
 // Rendering follows `quarto render` for HTML, entirely in the browser:
 //   1. Parse the YAML front matter (js-yaml) and resolve Quarto options, as
 //      Quarto's command-line tool does before it calls pandoc.
-//   2. Execute R cells with webR, producing the same intermediate markdown
-//      that knitr hands to pandoc (`::: {.cell}` divs, outputs, figures).
+//   2. Execute code cells, producing the intermediate markdown Quarto's
+//      engines hand to pandoc (`::: {.cell}` divs, outputs, figures): R cells
+//      with webR, imitating knitr; Python cells with IPython in Pyodide (in a
+//      worker), formatted by a port of Quarto's Jupyter engine.
 //   3. Run pandoc-wasm with Quarto's own reader, Lua filters, data directory
 //      and template (captured from a real installation into
 //      quarto-runtime.json by tools/vendor/build-quarto-runtime.mjs).
 //   4. Apply Quarto's HTML post-processing and show the page in a sandboxed
 //      iframe with Quarto's own CSS and JavaScript.
 
-import { createEditor, setEditorText, jsyaml, createQuartoPandoc, postprocess } from "./vendor.js"
+import {
+  createEditor, setEditorText, jsyaml, createQuartoPandoc, postprocess,
+  jupyterCellMarkdown, jupyterInlineMarkdown
+} from "./vendor.js"
 
 const asset = name => new URL(name, import.meta.url).href
 
 const settings = {
   pandocWasmUrl: "https://unpkg.com/pandoc-wasm@1.1.0/src/pandoc.wasm",
   webrUrl: "https://webr.r-wasm.org/v0.6.0/webr.mjs",
+  pyodideUrl: "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs",
   mermaidUrl: "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js",
   ...readJson(document.getElementById("quarto-simulator-settings"))
 }
@@ -170,6 +176,61 @@ function withR(task) {
   return run
 }
 
+// Python runs in a Web Worker (python-worker.js) with Pyodide and IPython, so
+// a cell that never finishes can be stopped without freezing the page.
+let python
+function loadPython() {
+  if (!python) {
+    const worker = new Worker(asset("python-worker.js"), { type: "module" })
+    const pending = new Map()
+    let nextId = 0
+    const instance = {
+      call(type, args) {
+        return new Promise((resolve, reject) => {
+          const id = nextId++
+          pending.set(id, { resolve, reject })
+          worker.postMessage({ id, type, args })
+        })
+      },
+      stop(error) {
+        worker.terminate()
+        for (const { reject } of pending.values()) reject(error)
+        pending.clear()
+        if (python === instance) python = undefined
+      }
+    }
+    worker.onmessage = ({ data }) => {
+      const call = pending.get(data.id)
+      if (!call) return
+      pending.delete(data.id)
+      if ("error" in data) call.reject(new Error(data.error))
+      else call.resolve(data.result)
+    }
+    worker.onerror = event => {
+      event.preventDefault()
+      instance.stop(new RenderError("Python could not be started.", event.message))
+    }
+    instance.ready = instance.call("init", { pyodideUrl: settings.pyodideUrl }).then(() => instance)
+    instance.ready.catch(() => instance.stop())
+    python = instance
+  }
+  return python.ready
+}
+
+function stopPython() {
+  python?.stop(new RenderError(
+    "Python was stopped before the cell finished.",
+    "Rendering again starts a fresh Python session."
+  ))
+}
+
+let pythonQueue = Promise.resolve()
+function withPython(task) {
+  const run = pythonQueue.then(task)
+  pythonQueue = run.catch(() => {})
+  return run
+}
+
 // Parsing the document ----------------------------------------------------------------
 
 const FRONT_MATTER = /^---[ \t]*\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/
@@ -287,7 +348,7 @@ function parseCellOptions(cell) {
       options.label = part
     }
   }
-  return { options, code: cell.lines.slice(n).join("\n") }
+  return { options, optionLines: cell.lines.slice(0, n), code: cell.lines.slice(n).join("\n") }
 }
 
 // Quarto options for HTML: top-level keys, overridden by `format: html:`.
@@ -524,20 +585,8 @@ async function runRCell(r, cell, options, docOptions, images, cellIndex) {
       const bitmap = pageImages[Number(event.text) - 1]
       if (!bitmap) continue
       images.push(await bitmapToDataUrl(bitmap))
-      // A .png name, as pandoc appends default-image-extension to bare names.
-      const key = `qp-img-${images.length}.png`
       const displayWidth = Math.round(Number(options["fig-width"] ?? docOptions["fig-width"] ?? 7) * 96)
-      figureCount++
-      const label = figureCount === 1 && typeof options.label === "string" && options.label.startsWith("fig-") ? options.label : null
-      const caption = figureCount === 1 && options["fig-cap"] ? String(options["fig-cap"]) : ""
-      const alt = options["fig-alt"] ? ` fig-alt="${String(options["fig-alt"]).replace(/"/g, "&quot;")}"` : ""
-      let figure
-      if (label && !caption) {
-        figure = `::: {#${label}}\n\n![](${key}){width=${displayWidth}${alt}}\n\n:::`
-      } else {
-        figure = `![${caption}](${key}){${label ? `#${label} ` : ""}width=${displayWidth}${alt}}`
-      }
-      blocks.push(`::: {.cell-output-display}\n\n${figure}\n\n:::`)
+      blocks.push(knitrFigure(images.length, options, displayWidth, ++figureCount))
     }
   }
   flushSource()
@@ -545,14 +594,30 @@ async function runRCell(r, cell, options, docOptions, images, cellIndex) {
   return { markdown: `::: {${cellDivAttributes(options)}}\n\n${blocks.join("\n\n")}\n\n:::`, events }
 }
 
+// A figure as knitr writes it; the first figure in a cell takes the cell's
+// label and caption.
+function knitrFigure(imageNumber, options, displayWidth, figureNumber) {
+  // A .png name, as pandoc appends default-image-extension to bare names.
+  const key = `qp-img-${imageNumber}.png`
+  const label = figureNumber === 1 && typeof options.label === "string" && options.label.startsWith("fig-") ? options.label : null
+  const caption = figureNumber === 1 && options["fig-cap"] ? String(options["fig-cap"]) : ""
+  const alt = options["fig-alt"] ? ` fig-alt="${String(options["fig-alt"]).replace(/"/g, "&quot;")}"` : ""
+  const size = displayWidth ? `width=${displayWidth}` : ""
+  let figure
+  if (label && !caption) {
+    figure = `::: {#${label}}\n\n![](${key}){${size}${alt}}\n\n:::`
+  } else {
+    figure = `![${caption}](${key}){${[label ? `#${label}` : "", size].filter(Boolean).join(" ")}${alt}}`
+  }
+  return `::: {.cell-output-display}\n\n${figure}\n\n:::`
+}
+
 function nonRCell(cell, options, notices) {
   const lang = cell.lang
   if (lang === "mermaid") {
     return `\`\`\`{=html}\n<pre class="mermaid">${escapeHtml(cell.code)}</pre>\n\`\`\``
   }
-  const message = lang === "python"
-    ? "Python cells aren't run in this preview yet; only the code is shown."
-    : `\`{${lang}}\` cells aren't run in this preview; only the code is shown.`
+  const message = `\`{${lang}}\` cells aren't run in this preview; only the code is shown.`
   if (!notices.includes(message)) notices.push(message)
   if (!options.echo || !options.include) return ""
   return `::: {.cell}\n\n${codeBlock(cell.code, `.${lang} .cell-code`)}\n\n:::`
@@ -576,9 +641,124 @@ async function renderInlineR(r, text) {
   return out + text.slice(last)
 }
 
+// Python ----------------------------------------------------------------------------------
+
+// Quarto's own kernel setup code (share/jupyter/lang/python/setup.py), with
+// the values Quarto fills in for an HTML document. Among other things it sets
+// matplotlib's figure size and the retina PNG format.
+function pythonSetupCode(bundle, options) {
+  const values = {
+    fig_width: Number(options["fig-width"] ?? 7),
+    fig_height: Number(options["fig-height"] ?? 5),
+    fig_format: options["fig-format"] ?? "retina",
+    fig_dpi: Number(options["fig-dpi"] ?? 96),
+    interactivity: options["ipynb-shell-interactivity"] ?? "",
+    is_shiny: "False",
+    is_dashboard: "False",
+    plotly_connected: "True",
+    run_path: ""
+  }
+  return bundle.files["/quarto/share/jupyter/lang/python/setup.py"]
+    .replace(/\{(\w+)\}/g, (match, key) => (key in values ? String(values[key]) : match))
+    // `%reset` asks for confirmation outside a Jupyter kernel.
+    .replace(/^%reset\s*$/m, "%reset -f")
+}
+
+// Like a fresh kernel for each render: load the packages the code imports,
+// then run Quarto's setup code, which also clears the previous render's
+// variables.
+async function startPython(cells, options, bundle, setStatus) {
+  setStatus("Starting Python…")
+  const py = await loadPython()
+  setStatus("Loading Python packages…")
+  await py.call("loadPackages", { cells: cells.map(c => c.code) })
+  await py.call("run", { code: pythonSetupCode(bundle, options), executionCount: 0, storeHistory: false })
+  return py
+}
+
+async function runPythonCell(py, part, executionCount, hooks) {
+  hooks.onPython?.(true)
+  try {
+    return await py.call("run", { code: part.code, executionCount })
+  } finally {
+    hooks.onPython?.(false)
+  }
+}
+
+function pythonError(outputs, part, index) {
+  const error = outputs.find(o => o.output_type === "error")
+  const label = part.options.label ? ` [${part.options.label}]` : ""
+  const traceback = error ? error.traceback.join("\n").replace(/\x1b\[[0-9;]*m/g, "") : ""
+  return new RenderError(
+    `${error ? `${error.ename}: ${error.evalue}` : "The cell failed."}\n\n` +
+      `Quitting from Python cell ${index} (lines ${part.startLine + 1}-${part.endLine + 1})${label}`,
+    `${traceback ? traceback + "\n\n" : ""}Add \`#| error: true\` to the cell to show the error in the document instead of stopping the render.`
+  )
+}
+
+const jupyterText = value => (Array.isArray(value) ? value.join("") : String(value ?? ""))
+
+// Python outputs as checks see them, alongside R's.
+function pythonOutputsForChecks(outputs) {
+  return outputs.map(output => {
+    if (output.output_type === "stream") return { type: output.name, text: output.text }
+    if (output.output_type === "error") return { type: "error", text: `${output.ename}: ${output.evalue}` }
+    if (Object.keys(output.data).some(mime => mime.startsWith("image/"))) return { type: "plot", text: "" }
+    const data = output.data
+    return {
+      type: output.output_type === "execute_result" ? "result" : "display",
+      text: jupyterText(data["text/plain"] ?? data["text/markdown"] ?? data["text/html"] ?? "")
+    }
+  })
+}
+
+const randomCellId = () =>
+  Array.from(crypto.getRandomValues(new Uint8Array(4)), b => b.toString(16).padStart(2, "0")).join("")
+
+async function renderInlinePython(py, text) {
+  const matches = [...text.matchAll(/`\{python\}\s+([^`\n]+?)`/g)]
+  if (!matches.length) return text
+  const results = await py.call("inline", { expressions: matches.map(m => m[1]) })
+  let out = ""
+  let last = 0
+  matches.forEach((m, i) => {
+    const result = results[i]
+    if (result.status !== "ok") {
+      throw new RenderError(`Error in inline Python code \`${m[1]}\`: ${result.ename}: ${result.evalue}`)
+    }
+    out += text.slice(last, m.index) + jupyterInlineMarkdown(result)
+    last = m.index + m[0].length
+  })
+  return out + text.slice(last)
+}
+
+// A Python cell in a document that also has R cells. Quarto then runs Python
+// through knitr (with the reticulate package); this approximates knitr's
+// output for it.
+function knitrPythonMarkdown(part, outputs, options, images) {
+  const blocks = []
+  if (options.echo) blocks.push(codeBlock(part.code, `.python ${codeBlockAttributes(options)}`))
+  let figureCount = 0
+  for (const output of options.output ? outputs : []) {
+    if (output.output_type === "stream") {
+      if (output.name === "stdout" || options.warning) blocks.push(outputBlock(output.name, output.text.replace(/\n$/, "")))
+    } else if (output.output_type === "error") {
+      blocks.push(outputBlock("stderr", output.traceback.join("\n").replace(/\x1b\[[0-9;]*m/g, "")))
+    } else if (output.data["image/png"]) {
+      images.push(`data:image/png;base64,${jupyterText(output.data["image/png"]).replace(/\n/g, "")}`)
+      const width = output.metadata?.["image/png"]?.width
+      blocks.push(knitrFigure(images.length, options, width, ++figureCount))
+    } else if (output.data["text/plain"] && !/^\[?<matplotlib/.test(jupyterText(output.data["text/plain"]))) {
+      blocks.push(outputBlock("stdout", jupyterText(output.data["text/plain"])))
+    }
+  }
+  if (!options.include) return ""
+  return `::: {${cellDivAttributes(options)}}\n\n${blocks.join("\n\n")}\n\n:::`
+}
+
 // The full render ---------------------------------------------------------------------------
 
-async function renderDocument(source, setStatus) {
+async function renderDocument(source, setStatus, hooks = {}) {
   const notices = []
   const { yaml, bodyStart } = parseFrontMatter(source)
   const firstBodyLine = source.slice(0, bodyStart).split("\n").length - 1
@@ -592,24 +772,38 @@ async function renderDocument(source, setStatus) {
     if (part.type !== "cell") continue
     const parsed = parseCellOptions(part)
     part.code = parsed.code
+    part.optionLines = parsed.optionLines
+    part.cellOptions = parsed.options
     part.options = { ...execute, ...parsed.options }
     cells.push(part)
   }
 
-  const needsR = cells.some(c => c.lang === "r") || parts.some(p => p.type === "markdown" && /`\{r\}\s/.test(p.text))
+  // Quarto's engine choice: knitr if there is R code, Jupyter for Python.
+  const usesInline = lang => parts.some(p => p.type === "markdown" && new RegExp(`\`\\{${lang}\\}\\s`).test(p.text))
+  const pythonCells = cells.filter(c => c.lang === "python")
+  const needsR = cells.some(c => c.lang === "r") || usesInline("r")
+  const needsPython = pythonCells.length > 0 || usesInline("python")
+  const engine = needsR ? "knitr" : needsPython ? "jupyter" : "markdown"
+
   setStatus("Loading the Quarto renderer…")
   const quartoReady = loadQuarto()
-  let markdownParts = []
+  const markdownParts = []
   const images = []
   const cellResults = []
+  const otherCell = part => {
+    markdownParts.push(`\n${nonRCell(part, part.options, notices)}\n`)
+    cellResults.push({ lang: part.lang, code: part.code, options: part.options, outputs: [] })
+  }
 
-  if (needsR) {
-    setStatus("Starting R…")
-    const r = await loadWebR()
-    await withR(async () => {
+  if (engine === "knitr") {
+    const runKnitr = () => withR(async () => {
+      const py = pythonCells.length ? await startPython(pythonCells, options, (await quartoReady).bundle, setStatus) : null
+      setStatus("Starting R…")
+      const r = await loadWebR()
       await ensurePackages(r, packagesUsed(cells.filter(c => c.lang === "r").map(c => c.code).join("\n")), setStatus)
       await r.webR.evalRVoid(".qp_env <- new.env(parent = globalenv())")
       let rIndex = 0
+      let pyIndex = 0
       for (const part of parts) {
         if (part.type === "verbatim") {
           markdownParts.push(part.text)
@@ -621,20 +815,62 @@ async function renderDocument(source, setStatus) {
           const { markdown, events } = await runRCell(r, part, part.options, options, images, rIndex)
           cellResults.push({ lang: "r", code: part.code, options: part.options, outputs: events.filter(e => e.type !== "source") })
           markdownParts.push(`\n${markdown}\n`)
+        } else if (part.lang === "python") {
+          pyIndex++
+          let outputs = []
+          if (part.options.eval) {
+            setStatus(`Running Python cell ${pyIndex}…`)
+            const result = await runPythonCell(py, part, pyIndex, hooks)
+            if (result.failed && !part.options.error) throw pythonError(result.outputs, part, pyIndex)
+            outputs = result.outputs
+          }
+          cellResults.push({ lang: "python", code: part.code, options: part.options, outputs: pythonOutputsForChecks(outputs) })
+          markdownParts.push(`\n${knitrPythonMarkdown(part, outputs, part.options, images)}\n`)
         } else {
-          markdownParts.push(`\n${nonRCell(part, part.options, notices)}\n`)
-          cellResults.push({ lang: part.lang, code: part.code, options: part.options, outputs: [] })
+          otherCell(part)
+        }
+      }
+    })
+    await (pythonCells.length ? withPython(runKnitr) : runKnitr())
+  } else if (engine === "jupyter") {
+    await withPython(async () => {
+      const py = await startPython(pythonCells, options, (await quartoReady).bundle, setStatus)
+      // Every code cell is numbered; the kernel counts only the cells it runs.
+      let codeCells = 0
+      let kernelCount = 1
+      for (const part of parts) {
+        if (part.type === "verbatim") {
+          markdownParts.push(part.text)
+        } else if (part.type === "markdown") {
+          markdownParts.push(await renderInlinePython(py, part.text))
+        } else if (part.lang === "python") {
+          codeCells++
+          const cell = {
+            // Quarto names a labelled cell `cell-<label>` in the notebook.
+            id: typeof part.cellOptions.label === "string" ? `cell-${part.cellOptions.label}` : randomCellId(),
+            source: part.code,
+            optionsSource: part.optionLines.map(line => line + "\n"),
+            options: part.cellOptions,
+            outputs: [],
+            execution_count: codeCells
+          }
+          if (part.options.eval) {
+            setStatus(`Running Python cell ${codeCells}…`)
+            const result = await runPythonCell(py, part, kernelCount++, hooks)
+            if (result.failed && !part.options.error) throw pythonError(result.outputs, part, codeCells)
+            cell.outputs = result.outputs
+          }
+          cellResults.push({ lang: "python", code: part.code, options: part.options, outputs: pythonOutputsForChecks(cell.outputs) })
+          markdownParts.push(jupyterCellMarkdown(cell, codeCells - 1, { execute, language: "python" }, images))
+        } else {
+          otherCell(part)
         }
       }
     })
   } else {
     for (const part of parts) {
-      if (part.type !== "cell") {
-        markdownParts.push(part.text)
-      } else {
-        markdownParts.push(`\n${nonRCell(part, part.options, notices)}\n`)
-        cellResults.push({ lang: part.lang, code: part.code, options: part.options, outputs: [] })
-      }
+      if (part.type !== "cell") markdownParts.push(part.text)
+      else otherCell(part)
     }
   }
 
@@ -642,7 +878,7 @@ async function renderDocument(source, setStatus) {
   const quarto = await quartoReady
   const result = await quarto.render({
     markdown: markdownParts.join("\n") + "\n",
-    ...quartoInputs(options, needsR, quarto.bundle)
+    ...quartoInputs(options, engine, quarto.bundle)
   })
   const messages = quartoMessages(result)
   if (!result.html || messages.error) {
@@ -664,7 +900,7 @@ async function renderDocument(source, setStatus) {
 // calls pandoc: document metadata, a few pandoc options, and filter params.
 const NOT_METADATA = new Set(["format", "execute", "engine", "jupyter", "knitr", "filters"])
 
-function quartoInputs(options, usesKnitr, bundle) {
+function quartoInputs(options, engine, bundle) {
   // Like Quarto's metadataAsFormat: options in the execute, render, pandoc,
   // identifier and language groups configure the render; the rest is metadata.
   const formatOptions = new Set(Object.values(bundle.optionGroups).flat())
@@ -685,13 +921,13 @@ function quartoInputs(options, usesKnitr, bundle) {
   const defaults = {}
   if (options.toc) defaults.toc = true
   if (options["toc-depth"] != null) defaults["toc-depth"] = Number(options["toc-depth"])
-  if (usesKnitr) {
+  if (engine === "knitr") {
     defaults.filters = [...bundle.defaults.filters, "/quarto/share/filters/rmarkdown/pagebreak.lua"]
   }
 
   // Format options Quarto's CLI copies into filter parameters
   // (quartoFilterParams and crossrefFilterParams in Quarto 1.10).
-  const params = { "execution-engine": usesKnitr ? "knitr" : "markdown" }
+  const params = { "execution-engine": engine }
   for (const key of PARAM_OPTIONS) {
     if (options[key] != null) params[key] = options[key]
   }
@@ -824,8 +1060,11 @@ class Playground {
     const opts = this.options
     this.status = el("span", { class: "qp-status", role: "status" })
     this.renderButton = el("button", { type: "button", class: "qp-btn qp-btn-primary", title: "Render (Ctrl/Cmd + Shift + K)", onclick: () => this.render() }, "▶ Render")
+    // Shown while a Python cell has been running for a while.
+    this.stopButton = el("button", { type: "button", class: "qp-btn", hidden: "", title: "Stop the running Python code", onclick: () => stopPython() }, "■ Stop")
     const toolbar = el("div", { class: "qp-toolbar" },
       this.renderButton,
+      this.stopButton,
       el("button", { type: "button", class: "qp-btn", onclick: () => this.reset() }, "↺ Reset"),
       this.status
     )
@@ -910,7 +1149,13 @@ class Playground {
     const started = performance.now()
     this.rendering = (async () => {
       try {
-        const result = await renderDocument(source, text => this.setStatus(text, "qp-busy"))
+        const result = await renderDocument(source, text => this.setStatus(text, "qp-busy"), {
+          onPython: running => {
+            clearTimeout(this.stopTimer)
+            if (running) this.stopTimer = setTimeout(() => (this.stopButton.hidden = false), 1500)
+            else this.stopButton.hidden = true
+          }
+        })
         this.rendered = { ...result, source, error: null }
         this.frame.srcdoc = frameDocument(result.page, (await loadQuarto()).bundle.headTags)
         this.frame.classList.remove("qp-stale")

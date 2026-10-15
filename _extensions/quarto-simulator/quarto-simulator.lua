@@ -139,6 +139,7 @@ end
 local function add_dependency(meta)
   local resources = {
     "resources/vendor.js",
+    "resources/python-worker.js",
     "resources/quarto-runtime.json",
     "resources/preview-frame.css"
   }
@@ -150,7 +151,7 @@ local function add_dependency(meta)
   end
   quarto.doc.add_html_dependency({
     name = "quarto-simulator",
-    version = "0.3.0",
+    version = "0.4.0",
     scripts = { { path = "resources/quarto-simulator.js", attribs = { type = "module" } } },
     stylesheets = { "resources/quarto-simulator.css" },
     resources = resources
@@ -160,10 +161,11 @@ local function add_dependency(meta)
   --     column: page-inset-right     # default width for every playground
   --     pandoc-wasm-url: /assets/pandoc.wasm
   --     webr-url: https://webr.r-wasm.org/v0.6.0/webr.mjs
+  --     pyodide-url: https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs
   local config = meta["quarto-simulator"]
   if config then
     local settings = {}
-    local keys = { ["pandoc-wasm-url"] = "pandocWasmUrl", ["webr-url"] = "webrUrl" }
+    local keys = { ["pandoc-wasm-url"] = "pandocWasmUrl", ["webr-url"] = "webrUrl", ["pyodide-url"] = "pyodideUrl" }
     for key, name in pairs(keys) do
       if config[key] then settings[name] = pandoc.utils.stringify(config[key]) end
     end

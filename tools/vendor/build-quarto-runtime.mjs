@@ -85,6 +85,8 @@ for (const ext of ["kbd", "video", "lipsum", "version", "placeholder"]) {
     if (name.endsWith(".lua")) add(`${VSHARE}/extensions/quarto/${ext}/${name}`, join(dir, name))
   }
 }
+// The code Quarto runs in a Python kernel before a document's cells.
+add(`${VSHARE}/jupyter/lang/python/setup.py`, join(sharePath, "jupyter", "lang", "python", "setup.py"))
 const datadir = join(sharePath, "pandoc", "datadir")
 for (const name of readdirSync(datadir)) {
   if (!name.endsWith(".lua") || name.startsWith("luacov")) continue

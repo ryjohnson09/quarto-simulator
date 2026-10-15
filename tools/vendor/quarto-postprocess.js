@@ -97,6 +97,13 @@ export function postprocess(doc, { codeCopy = true, anchors = true, copyTooltip 
     table.classList.add("table")
     if (inCell(table)) table.classList.add("table-sm", "table-striped", "small")
   }
+  // pandas DataFrames: drop the inline styles pandas emits.
+  for (const table of doc.querySelectorAll("table.dataframe")) {
+    table.removeAttribute("border")
+    table.classList.add("table", "table-sm", "table-striped", "small")
+    for (const row of table.querySelectorAll("tr")) row.removeAttribute("style")
+    if (table.previousElementSibling?.tagName === "STYLE") table.previousElementSibling.remove()
+  }
   for (const table of doc.querySelectorAll("table.data-frame")) {
     table.classList.add("table", "table-sm", "table-striped", "small")
   }

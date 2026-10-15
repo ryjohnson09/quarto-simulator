@@ -216,3 +216,74 @@ if (result.yaml.format?.html?.toc !== true) {
 if (!result.html.querySelector("nav#TOC")) return fail("The table of contents isn't showing yet.")
 return pass("The YAML is valid, and the table of contents appears.")
 ```
+
+## Exercise 4: Python cells
+
+Python cells work too. Quarto runs them with Jupyter; here they run with
+Python in your browser. Change the document so that:
+
+1. The table is a **cross-referenceable table**: give the cell a label starting with `tbl-` and a `tbl-cap`.
+2. The `???` is replaced by **inline Python code** that computes the average score, rounded to one decimal place.
+
+````{quarto-simulator}
+#| exercise: ex-python
+---
+title: "Quiz results"
+---
+
+```{python}
+import pandas as pd
+scores = pd.DataFrame({"student": ["Ana", "Ben", "Cy"], "score": [88, 92, 79]})
+scores
+```
+
+The average score was ???.
+````
+
+::: {.hint exercise="ex-python"}
+Table options look like figure options: `#| label: tbl-scores` and `#| tbl-cap: "..."`.
+:::
+
+::: {.hint exercise="ex-python"}
+Inline code is written `` `{python} expression` ``. Try `round(scores["score"].mean(), 1)`.
+:::
+
+::: {.hint exercise="ex-python"}
+pandas returns NumPy numbers, which display as `np.float64(86.3)`. Format the number as
+text instead: `` `{python} f"{scores['score'].mean():.1f}"` ``.
+:::
+
+::: {.solution exercise="ex-python"}
+````markdown
+---
+title: "Quiz results"
+---
+
+```{python}
+#| label: tbl-scores
+#| tbl-cap: "Quiz scores."
+import pandas as pd
+scores = pd.DataFrame({"student": ["Ana", "Ben", "Cy"], "score": [88, 92, 79]})
+scores
+```
+
+The average score was `{python} f"{scores['score'].mean():.1f}"`.
+````
+:::
+
+```{quarto-simulator-check}
+#| exercise: ex-python
+const cell = result.cells.find(c => c.lang === "python")
+if (!cell) return fail("The Python code cell is missing. Did it get deleted?")
+if (!String(cell.options.label ?? "").startsWith("tbl-")) {
+  return fail("The table isn't cross-referenceable yet. Give the cell a `label` that starts with `tbl-`.")
+}
+if (!cell.options["tbl-cap"]) return fail("Add a `tbl-cap` so the table has a caption.")
+if (result.body.includes("???")) return fail("Replace `???` with inline Python code.")
+if (!/(^|[^`])`\{python\}\s/m.test(result.body)) return fail("Use inline Python code rather than typing the number. It starts with a backtick and `{python}`.")
+if (result.text.includes("np.float64")) {
+  return fail("Python's number shows as `np.float64(...)`. Format it as text, for example with an f-string.")
+}
+if (!result.text.includes("86.3")) return fail("The average shows up, but it isn't 86.3 yet. Did you round to one decimal place?")
+return pass("The table has a number and a caption, and the average is computed by Python.")
+```
