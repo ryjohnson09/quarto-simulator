@@ -1,0 +1,228 @@
+---
+title: "Get started"
+description: "Install the extension, write a playground, and choose its options."
+engine: markdown
+filters:
+  - quarto-simulator
+quarto-simulator:
+  column: page-inset-right
+---
+
+## Install
+
+In the Quarto project that holds your lessons, run:
+
+```bash
+quarto add ryjohnson09/quarto-simulator
+```
+
+This copies the extension into `_extensions/quarto-simulator/`. Commit that
+folder with your lessons. Lessons can be rendered with Quarto 1.9 or later.
+The renderer inside the playground is Quarto 1.10.19, whichever version
+renders the lesson.
+
+To update the extension later, run the same command again.
+
+## Set up a lesson
+
+Add the filter to the lesson's YAML, and set `engine: markdown`:
+
+```yaml
+---
+title: "My lesson"
+engine: markdown
+filters:
+  - quarto-simulator
+---
+```
+
+`engine: markdown` matters. Without it, Quarto sees the ```` ```{r} ```` and
+```` ```{python} ```` cells inside your playgrounds and runs them with knitr or
+Jupyter while rendering the lesson, before the playground ever sees them. If the
+lesson itself must run code, see [Starter documents in files](#starter-documents-in-files).
+
+The lesson must be served over HTTP, as `quarto preview`, GitHub Pages or any
+web server does. Opening the HTML file directly from disk won't work.
+
+## Your first playground
+
+A playground is a `quarto-simulator` block whose content is the learner's
+starting document. Use a fence with **more backticks than any fence inside
+the document**. Four is enough when the document has ordinary code cells:
+
+`````markdown
+````{quarto-simulator}
+---
+title: "Hello"
+---
+
+## Introduction
+
+Write *anything* here.
+
+```{r}
+1 + 1
+```
+````
+`````
+
+That block becomes:
+
+````{quarto-simulator}
+---
+title: "Hello"
+---
+
+## Introduction
+
+Write *anything* here.
+
+```{r}
+1 + 1
+```
+````
+
+The first render downloads pandoc (about 16 MB) and, because this document
+has an R cell, webR. Later renders take about half a second. Every playground
+on the page shares the same pandoc and R.
+
+### What learners can do
+
+- **▶ Render**, or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>Shift</kbd> +
+  <kbd>K</kbd> as in RStudio and Positron (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd> +
+  <kbd>Enter</kbd> also works).
+- **↺ Reset** to go back to the starting document.
+- Read warnings and errors under the editor: YAML errors point to the line,
+  unknown options get "did you mean" suggestions, and failed cells say which
+  cell failed.
+
+Edits are saved in the browser's `localStorage`, per page and per
+playground, so they survive a reload.
+
+## Playground options
+
+Options go in `#|` lines at the top of the block, before the document:
+
+| Option       | Default        | Meaning                                                                     |
+|--------------|----------------|-----------------------------------------------------------------------------|
+| `exercise`   | none           | ID that links the playground to checks, hints and solutions. See [Exercises](exercises.qmd) |
+| `file`       | none           | Load the starting document from a file, relative to the lesson               |
+| `height`     | `460`          | Height of the editor and preview, in pixels                                 |
+| `layout`     | `horizontal`   | `vertical` stacks the preview under the editor                              |
+| `column`     | body           | A Quarto column, such as `page-inset-right` or `page`                       |
+| `autorender` | `true`         | Render when the playground first scrolls into view                          |
+| `live`       | `false`        | Re-render as the learner types                                              |
+| `filename`   | `document.qmd` | Name shown above the editor                                                 |
+
+### Layout and size
+
+A vertical layout suits narrow pages and long previews:
+
+`````markdown
+````{quarto-simulator}
+#| layout: vertical
+#| height: 260
+#| filename: notes.qmd
+---
+title: "Stacked"
+---
+
+The preview is below the editor.
+````
+`````
+
+````{quarto-simulator}
+#| layout: vertical
+#| height: 260
+#| filename: notes.qmd
+---
+title: "Stacked"
+---
+
+The preview is below the editor.
+````
+
+### Live preview
+
+With `live: true`, the preview updates shortly after the learner stops
+typing. It suits short markdown-only documents; with code cells, every pause
+re-runs the code.
+
+`````markdown
+````{quarto-simulator}
+#| live: true
+#| height: 220
+Type here: **bold**, *italic*, ~~strikethrough~~, H~2~O, E = mc^2^.
+````
+`````
+
+````{quarto-simulator}
+#| live: true
+#| height: 220
+Type here: **bold**, *italic*, ~~strikethrough~~, H~2~O, E = mc^2^.
+````
+
+### Render on request
+
+`autorender: false` waits for the learner to press **▶ Render**. Use it for
+playgrounds that download large packages, so scrolling past them costs
+nothing.
+
+`````markdown
+````{quarto-simulator}
+#| autorender: false
+#| height: 200
+---
+title: "Not rendered yet"
+---
+
+Press Render to see this document.
+````
+`````
+
+````{quarto-simulator}
+#| autorender: false
+#| height: 200
+---
+title: "Not rendered yet"
+---
+
+Press Render to see this document.
+````
+
+## Starter documents in files {#starter-documents-in-files}
+
+`#| file:` loads the starting document from a file, relative to the lesson.
+The block is then empty apart from its options:
+
+`````markdown
+````{quarto-simulator}
+#| file: _starters/report.qmd
+````
+`````
+
+````{quarto-simulator}
+#| file: _starters/report.qmd
+````
+
+Start the file name with `_` (or keep it in a folder whose name does) so that
+a Quarto project doesn't render it as a page. Files also keep long starting
+documents out of the lesson's source, and they are the way to use playgrounds
+in a lesson that runs code itself: the lesson then has no nested cells, so it
+doesn't need `engine: markdown`.
+
+## Page settings
+
+A `quarto-simulator` key in the lesson's YAML sets defaults for the page:
+
+```yaml
+quarto-simulator:
+  column: page-inset-right   # default column for every playground
+  pandoc-wasm-url: /assets/pandoc.wasm
+  webr-url: https://webr.r-wasm.org/v0.6.0/webr.mjs
+  pyodide-url: https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs
+```
+
+The URLs say where pandoc, webR and Pyodide are downloaded from. The
+defaults are public CDNs; see [hosting the binaries](how-it-works.qmd#hosting-and-embedding)
+to serve them yourself.

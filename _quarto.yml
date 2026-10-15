@@ -1,4 +1,51 @@
 project:
-  type: default
+  type: website
+  output-dir: _site
   render:
     - index.qmd
+    - vignettes/*.qmd
+
+website:
+  title: "quarto-simulator"
+  description: "Teach Quarto inside Quarto: an editor and a live preview that simulate `quarto render` in the learner's browser."
+  site-url: https://ryjohnson09.github.io/quarto-simulator/
+  repo-url: https://github.com/ryjohnson09/quarto-simulator
+  page-navigation: true
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: vignettes/get-started.qmd
+        text: Get started
+      - href: vignettes/example-lesson.qmd
+        text: Example lesson
+    right:
+      - icon: github
+        href: https://github.com/ryjohnson09/quarto-simulator
+        aria-label: GitHub repository
+  sidebar:
+    style: docked
+    contents:
+      - href: index.qmd
+        text: Home
+      - section: Vignettes
+        contents:
+          - vignettes/get-started.qmd
+          - vignettes/exercises.qmd
+          - vignettes/r-code.qmd
+          - vignettes/python-code.qmd
+          - href: vignettes/example-lesson.qmd
+            text: Example lesson
+          - vignettes/how-it-works.qmd
+  page-footer:
+    left: "quarto-simulator is MIT licensed. It simulates Quarto for teaching; it is not Quarto."
+    right:
+      - icon: github
+        href: https://github.com/ryjohnson09/quarto-simulator
+
+format:
+  html:
+    toc: true
+
+# Each page sets `engine: markdown` and `filters: [quarto-simulator]` in its
+# own front matter, the way a lesson would.

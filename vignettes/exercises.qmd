@@ -1,0 +1,200 @@
+---
+title: "Exercises"
+description: "Add hints, solutions and checks that grade the learner's document."
+engine: markdown
+filters:
+  - quarto-simulator
+quarto-simulator:
+  column: page-inset-right
+---
+
+An exercise is a playground with an `exercise` ID, plus any number of hints,
+an optional solution, and an optional check, all tied to it by that ID. They
+follow the same `exercise="..."` convention as
+[Quarto Live](https://r-wasm.github.io/quarto-live/).
+
+## A complete exercise
+
+Here is a small exercise, followed by its source.
+
+**Give this document a subtitle, and make the word "quickly" bold.**
+
+````{quarto-simulator}
+#| exercise: ex-demo
+#| height: 300
+---
+title: "Release notes"
+---
+
+We fixed the bug quickly.
+````
+
+::: {.hint exercise="ex-demo"}
+A subtitle is set in the YAML header, like the title: `subtitle: "..."`.
+:::
+
+::: {.hint exercise="ex-demo"}
+In markdown, `**two asterisks**` on each side make text bold.
+:::
+
+::: {.solution exercise="ex-demo"}
+```markdown
+---
+title: "Release notes"
+subtitle: "Version 2.0"
+---
+
+We fixed the bug **quickly**.
+```
+:::
+
+```{quarto-simulator-check}
+#| exercise: ex-demo
+if (!result.yaml.subtitle) return fail("There's no subtitle yet. Add `subtitle:` to the YAML header.")
+const bold = [...result.html.querySelectorAll("main strong")].map(el => el.textContent)
+if (!bold.includes("quickly")) return fail("Make the word `quickly` bold with `**quickly**`.")
+return pass("The document has a subtitle and a bold word.")
+```
+
+The source of that exercise:
+
+`````markdown
+````{quarto-simulator}
+#| exercise: ex-demo
+---
+title: "Release notes"
+---
+
+We fixed the bug quickly.
+````
+
+::: {.hint exercise="ex-demo"}
+A subtitle is set in the YAML header, like the title: `subtitle: "..."`.
+:::
+
+::: {.hint exercise="ex-demo"}
+In markdown, `**two asterisks**` on each side make text bold.
+:::
+
+::: {.solution exercise="ex-demo"}
+```markdown
+---
+title: "Release notes"
+subtitle: "Version 2.0"
+---
+
+We fixed the bug **quickly**.
+```
+:::
+
+```{quarto-simulator-check}
+#| exercise: ex-demo
+if (!result.yaml.subtitle) return fail("There's no subtitle yet. Add `subtitle:` to the YAML header.")
+const bold = [...result.html.querySelectorAll("main strong")].map(el => el.textContent)
+if (!bold.includes("quickly")) return fail("Make the word `quickly` bold with `**quickly**`.")
+return pass("The document has a subtitle and a bold word.")
+```
+`````
+
+## Hints
+
+`::: {.hint exercise="ID"}` divs are hidden until the learner presses
+**💡 Hint**. Each press reveals the next hint, in order, so start general and
+get more specific. Hints are ordinary markdown.
+
+## Solutions
+
+A `::: {.solution exercise="ID"}` div is revealed by **Show solution**. If it
+contains a code block, the learner also gets a **Copy solution into the
+editor** button, which replaces their document with the block's content. Use
+a `markdown` code block holding the whole document, as above. If the
+solution document has code cells, use a longer fence for the outer block:
+
+`````markdown
+::: {.solution exercise="ex-plot"}
+````markdown
+---
+title: "Plot"
+---
+
+```{r}
+#| echo: false
+plot(cars)
+```
+````
+:::
+`````
+
+## Checks
+
+A `quarto-simulator-check` block holds the body of an async JavaScript
+function. **✓ Check** renders the learner's document, then runs it. It must
+return `pass(message)` or `fail(message)`. Messages are short markdown:
+backticks show as code.
+
+If the document fails to render, the check fails without running and points
+the learner to the error, so checks only ever see documents that rendered.
+
+The function receives `result`:
+
+| Field      | Contents                                                                      |
+|------------|-------------------------------------------------------------------------------|
+| `source`   | The learner's full text                                                       |
+| `yaml`     | The parsed front matter, as an object                                         |
+| `body`     | Everything after the front matter                                             |
+| `html`     | The rendered preview as a `Document`, so `querySelector` works                |
+| `text`     | The rendered preview as plain text                                            |
+| `cells`    | `[{ lang, code, options, outputs: [{ type, text }] }]`, one per code cell      |
+| `warnings` | Render warnings, such as unresolved cross-references                          |
+
+Output types are `stdout`, `stderr`, `error` and `plot`, and for Python also
+`result` (the value of the cell's last line) and `display` (`display()` and
+rich output such as pandas tables).
+
+### Patterns
+
+Check one requirement at a time, in the order the instructions list them, and
+say what to do next. The first failing requirement is the one the learner
+sees.
+
+**YAML options.** `result.yaml` holds what the learner wrote, so the check
+sees exactly where an option is:
+
+```js
+if (result.yaml.toc !== true) return fail("Turn on a table of contents with `toc: true`.")
+if (result.yaml.format?.html?.["code-fold"] !== true) {
+  return fail("`code-fold` is an option of the `html` format. Put it under `format: html:`.")
+}
+```
+
+**What rendered.** `result.html` is the page the learner sees, so checks can
+test the result rather than the spelling:
+
+```js
+const tip = result.html.querySelector(".callout-tip")
+if (!tip) return fail("Add a tip callout: `::: {.callout-tip}`.")
+if (!result.html.querySelector("nav#TOC")) return fail("The table of contents isn't showing yet.")
+if (!result.html.querySelector("a.quarto-xref")) return fail("Refer to the figure with `@fig-...`.")
+```
+
+**Code cells.** `result.cells` has each cell's options, after the document's
+`execute` defaults are applied, and its outputs:
+
+```js
+const cell = result.cells.find(c => c.lang === "r")
+if (!cell) return fail("The R code cell is missing.")
+if (cell.options.echo !== false) return fail("Hide the code with `#| echo: false`.")
+if (!cell.outputs.some(o => o.type === "plot")) return fail("The cell should draw a plot.")
+```
+
+**Warnings.** A broken cross-reference renders as `?@fig-name` and appears
+in `result.warnings`:
+
+```js
+if (result.warnings.some(w => w.includes("Unable to resolve crossref"))) {
+  return fail("A cross-reference doesn't match any label. Check the spelling after `@`.")
+}
+```
+
+Checks run in the learner's browser, so a determined learner can read them.
+They are feedback, not an exam.

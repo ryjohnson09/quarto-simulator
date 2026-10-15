@@ -1,0 +1,120 @@
+---
+title: "How it works"
+description: "What is real Quarto and what is simulated, performance, limitations, and hosting notes."
+engine: markdown
+filters:
+  - quarto-simulator
+---
+
+`quarto-simulator` is a teaching tool. It aims to render the documents a
+learner writes while learning Quarto the way Quarto would, and to be honest
+about where it can't. This page explains which parts are real Quarto, which
+are simulated, and what that means for lessons.
+
+## Real and simulated
+
+`quarto render` is a TypeScript command-line program that runs knitr or
+Jupyter, then pandoc with Quarto's Lua filters, then post-processes the HTML.
+In the browser, pandoc and the Lua filters can run unchanged; the rest is
+reimplemented:
+
+| Step                      | `quarto render`                     | The playground                                                                     |
+|---------------------------|-------------------------------------|------------------------------------------------------------------------------------|
+| Parse YAML, build options | Quarto CLI (TypeScript)             | **Reimplemented**: [js-yaml](https://github.com/nodeca/js-yaml) plus a mapping of the options a playground document uses |
+| Run R code                | knitr with Quarto's hooks           | **Reimplemented**: [webR](https://docs.r-wasm.org/webr/) plus an imitation of knitr that emits the same markdown and cell attributes as Quarto's knitr hooks |
+| Run Python code           | Jupyter (an IPython kernel), then Quarto turns outputs into markdown | **Mostly real**: IPython in [Pyodide](https://pyodide.org), in a Web Worker, after Quarto's own kernel setup code. The outputs-to-markdown step is ported from Quarto |
+| Markdown → HTML           | pandoc 3.10 with Quarto's Lua       | **Real**: pandoc 3.10 compiled to WebAssembly, with Quarto 1.10.19's reader, Lua filters, data directory, template and partials |
+| HTML post-processing      | Quarto CLI (TypeScript)             | **Partly ported** from Quarto's source                                              |
+| Page assets               | Bootstrap, `quarto.js` and so on    | **Real**: the files from a Quarto 1.10.19 render                                    |
+
+The preview pane is labelled **Preview (simulated Quarto)** so learners know
+what they're looking at.
+
+## How close is it?
+
+The project's tests compare the simulator with native Quarto 1.10.19:
+
+- **pandoc's output is identical** for a document covering callouts, tabsets,
+  subfigures, equations, theorems, margin content, footnotes, shortcodes,
+  code annotations and an R figure. Warnings match too: `Unable to resolve
+  crossref @fig-nope` comes from the same line of Quarto's `main.lua`.
+- **Python documents render identical HTML** to Quarto with a Jupyter kernel,
+  for documents covering printed output, expression values, warnings, errors,
+  `eval`/`echo`/`output`/`include`, `echo: fenced`, matplotlib figures with
+  labels, captions and subcaptions, pandas tables, `display(Markdown(...))`
+  and inline `{python}` code. The exceptions are figure widths that can
+  differ by a pixel, because fonts differ, and the file name in warnings.
+
+Known differences in the final page:
+
+- The table of contents stays in the body (like `toc-location: body`),
+  because the preview pane has no margin.
+- Three steps of Quarto's HTML post-processing aren't ported yet: margin
+  columns (`column-margin`), code annotation markup, and the footnotes
+  appendix. These render, but not exactly as Quarto lays them out.
+- R output is an imitation of knitr; see [R code](r-code.qmd).
+
+## Not supported
+
+- **Output formats other than HTML.** For `format: pdf` and others, a notice
+  explains that the preview shows HTML.
+- **Themes.** `theme` has no effect; the preview always uses Quarto's default.
+- **Projects and files.** Multi-file projects, local images and data files,
+  bibliographies and `include` shortcodes.
+- **Other engines and extensions.** Julia, OJS and third-party Quarto
+  extensions.
+- **YAML validation.** Quarto validates options against a schema in
+  TypeScript; the simulator only suggests fixes for misspelled option names.
+
+## Performance
+
+Everything loads on first use and is shared by every playground on the page:
+
+| Download                                | Transferred     | When                                  |
+|-----------------------------------------|-----------------|---------------------------------------|
+| The extension's own files               | about 4 MB      | First render on the page              |
+| pandoc                                  | about 16 MB     | First render on the page              |
+| webR and base R                         | about 14 MB     | First document with R code            |
+| Pyodide, IPython, numpy and pandas      | about 16 MB     | First Python document that uses pandas |
+| matplotlib                              | several MB more | First `import matplotlib`             |
+
+The extension's files are smaller when the server compresses them, as
+GitHub Pages does. Browsers cache all of these, so later visits are much faster. After the first
+render, a render takes about half a second, most of it Quarto's Lua filters
+starting up.
+
+One quirk: a code block whose language pandoc knows only by an alias or not
+at all (` ```md `, ` ```py `, ` ```sh `, ` ```js `, ` ```text `) makes that render about a
+second slower, while pandoc searches its syntax definitions. Full names
+(` ```markdown `, ` ```python `, ` ```bash `, ` ```javascript `) don't.
+
+## Hosting and embedding {#hosting-and-embedding}
+
+A lesson is a static site: any web server works, including GitHub Pages and
+Posit Connect. It must be served over HTTP; a file opened from disk won't
+work.
+
+The browser needs ES modules, Web Workers, `fetch` to the hosts below, and
+iframes with `srcdoc`. By default the binaries come from public CDNs:
+
+| File       | Default                                                         | Setting           |
+|------------|-----------------------------------------------------------------|-------------------|
+| pandoc     | `https://unpkg.com/pandoc-wasm@1.1.0/src/pandoc.wasm`           | `pandoc-wasm-url` |
+| webR       | `https://webr.r-wasm.org/v0.6.0/webr.mjs`                       | `webr-url`        |
+| Pyodide    | `https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs`   | `pyodide-url`     |
+
+For production, host `pandoc.wasm` yourself, compressed with gzip or brotli,
+and set `pandoc-wasm-url` in the lesson's `quarto-simulator:` settings
+(jsDelivr refuses files this large, which is why unpkg is the default).
+
+If the host sets a Content Security Policy, it must allow scripts and
+`fetch` from those hosts, `wasm-unsafe-eval`, workers from the site itself,
+and `new Function` for checks (`unsafe-eval`).
+
+## Versions
+
+Quarto's Lua filters are written for a specific pandoc. pandoc-wasm 1.1.0 is
+pandoc 3.10, which matches Quarto 1.10, so the bundled runtime is captured
+from Quarto 1.10.19. When Quarto moves to a newer pandoc, the runtime has to
+be rebuilt from that Quarto with a matching pandoc-wasm. The repository's
+`CONTRIBUTING.md` explains how.

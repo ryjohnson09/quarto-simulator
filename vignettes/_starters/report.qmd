@@ -1,0 +1,14 @@
+---
+title: "Weekly report"
+---
+
+This starter document was loaded from `_starters/report.qmd`.
+
+```{r}
+#| label: fig-speed
+#| fig-cap: "Stopping distance by speed."
+#| echo: false
+plot(cars)
+```
+
+@fig-speed shows the `cars` data.

@@ -671,7 +671,14 @@ async function startPython(cells, options, bundle, setStatus) {
   setStatus("Starting Python…")
   const py = await loadPython()
   setStatus("Loading Python packages…")
-  await py.call("loadPackages", { cells: cells.map(c => c.code) })
+  try {
+    await py.call("loadPackages", { cells: cells.map(c => c.code) })
+  } catch (err) {
+    throw new RenderError(
+      "Python packages could not be downloaded. Check your internet connection, then render again.",
+      String(err.message || err)
+    )
+  }
   await py.call("run", { code: pythonSetupCode(bundle, options), executionCount: 0, storeHistory: false })
   return py
 }

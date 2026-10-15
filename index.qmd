@@ -1,289 +1,119 @@
 ---
-title: "Your first Quarto document"
-subtitle: "Proof of concept: teaching Quarto basics with `quarto-simulator`"
+title: "quarto-simulator"
+subtitle: "Teach Quarto inside Quarto"
 engine: markdown
 filters:
   - quarto-simulator
 quarto-simulator:
   column: page-inset-right
+toc: false
 ---
 
-A Quarto document is plain text with three parts: a **YAML header** that sets
-document options, **markdown** prose, and **code cells** that run when the
-document renders.
+`quarto-simulator` is a Quarto extension for **teaching the basics of Quarto
+and markdown inside a Quarto lesson**. It turns a block in the lesson into an
+editor and a live preview that *simulate* `quarto render`, with optional
+graded exercises. Everything runs in the learner's browser: there is nothing
+to install and no server to run.
 
-Each playground below has an editor on the left and the rendered document on
-the right. The preview is a simulation of Quarto that runs in your browser,
-made for practising the basics. Edit the text, then press **▶ Render** (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>
-\+ <kbd>Shift</kbd> + <kbd>K</kbd>, the same shortcut RStudio uses) to see the result.
-Everything runs in your browser.
-
-## Explore
-
-Try changing the title, adding `toc: true` to the YAML header, or changing
-`cars` to `pressure` in the code cell.
+Try it. Change the text on the left, then press **▶ Render** (or
+<kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd>):
 
 ````{quarto-simulator}
+#| height: 420
 ---
-title: "Stopping distances"
-author: "Your Name"
-date: today
----
-
-## Introduction
-
-The `cars` dataset records the speed of cars and the distances taken to stop.
-It has `{r} nrow(cars)` rows.
-
-::: {.callout-note}
-These data were recorded in the 1920s.
-:::
-
-## Analysis
-
-```{r}
-#| label: fig-cars
-#| fig-cap: "Stopping distance increases with speed."
-plot(cars, xlab = "Speed (mph)", ylab = "Stopping distance (ft)")
-abline(lm(dist ~ speed, data = cars), col = "steelblue")
-```
-
-As @fig-cars shows, faster cars take longer to stop.
-````
-
-## Exercise 1: Document options and callouts
-
-The YAML header controls how the whole document renders. Update this document so that:
-
-1. It has a **table of contents**.
-2. The sentence about practice is inside a **tip callout**.
-
-````{quarto-simulator}
-#| exercise: ex-toc
----
-title: "Learning Quarto"
----
-
-## Why Quarto?
-
-Quarto weaves together prose and code.
-
-## Getting started
-
-Practice makes perfect: render early and often.
-
-## Next steps
-
-Try a callout of your own.
-````
-
-::: {.hint exercise="ex-toc"}
-A table of contents is a document option, so it goes in the YAML header between the `---` lines.
-:::
-
-::: {.hint exercise="ex-toc"}
-A callout is a fenced div with a class: start it with `::: {.callout-tip}` and end it with `:::`.
-:::
-
-::: {.solution exercise="ex-toc"}
-```markdown
----
-title: "Learning Quarto"
+title: "Hello, Quarto"
+author: "Your name"
 toc: true
 ---
 
-## Why Quarto?
+## Markdown
 
-Quarto weaves together prose and code.
+Quarto documents are written in **markdown**: *italics*, `code`,
+[links](https://quarto.org) and lists.
 
-## Getting started
+- One
+- Two
+
+## Callouts
 
 ::: {.callout-tip}
-Practice makes perfect: render early and often.
+Callouts, cross-references and tables of contents are rendered by
+Quarto's own Lua filters, so they look the way they do in real Quarto.
 :::
 
-## Next steps
+| Tool   | Role                       |
+|--------|----------------------------|
+| pandoc | Converts markdown to HTML  |
+| Quarto | Adds everything else       |
+````
 
-Try a callout of your own.
-```
+::: {.callout-important}
+## A simulation, not Quarto
+The markdown-to-HTML step is real: Quarto 1.10's own reader, Lua filters and
+template run in a WebAssembly build of pandoc. The rest is reimplemented for
+the browser: reading the YAML, running R (webR) and Python (Pyodide), and
+part of Quarto's HTML post-processing. Only HTML output is supported.
+[How it works](vignettes/how-it-works.qmd) has the details.
 :::
 
-```{quarto-simulator-check}
-#| exercise: ex-toc
-if (result.yaml.toc !== true) {
-  return fail("The document doesn't have a table of contents yet. Which YAML option turns one on?")
-}
-const tip = result.html.querySelector(".callout-tip")
-if (!tip) {
-  return fail("There's no tip callout yet. Wrap the practice sentence in `::: {.callout-tip}` … `:::`.")
-}
-if (!tip.textContent.includes("Practice makes perfect")) {
-  return fail("You have a tip callout, but it doesn't contain the sentence about practice.")
-}
-return pass("Your document has a table of contents and a tip callout.")
+## Install
+
+```bash
+quarto add ryjohnson09/quarto-simulator
 ```
 
-## Exercise 2: Code cell options
+Then add the filter to a lesson and write a `quarto-simulator` block, with
+more backticks than any fence inside it:
 
-Cell options start with `#|` and go at the top of a code cell. Change the cell so that:
-
-1. The **code is hidden** and only the plot shows.
-2. The plot is a **cross-referenceable figure**: give it a label starting with `fig-` and a caption.
-3. The sentence below the cell **refers to the figure** with `@`.
+`````markdown
+---
+title: "My lesson"
+engine: markdown
+filters:
+  - quarto-simulator
+---
 
 ````{quarto-simulator}
-#| exercise: ex-cells
 ---
-title: "Air pressure"
+title: "Hello"
 ---
 
-```{r}
-plot(pressure, type = "b")
-```
-
-The plot above shows that vapor pressure rises steeply with temperature.
+Some **markdown** to start from.
 ````
+`````
 
-::: {.hint exercise="ex-cells"}
-`#| echo: false` hides a cell's code. Figures need both `#| label: fig-something` and `#| fig-cap: "..."`.
-:::
+`engine: markdown` stops knitr or Jupyter from running the code cells inside
+playgrounds when the lesson itself renders.
 
-::: {.hint exercise="ex-cells"}
-Refer to a figure by its label, for example `@fig-pressure`. Quarto replaces it with "Figure 1".
-:::
+## What it can do
 
-::: {.solution exercise="ex-cells"}
-````markdown
----
-title: "Air pressure"
----
+- **Real Quarto output.** Callouts, cross-references, figures, tabsets,
+  equations and the table of contents come from Quarto's own filters.
+- **R and Python.** R cells run in webR and Python cells in Pyodide, with
+  plots, tables, cell options and inline code.
+- **Exercises.** Hints, solutions and checks written in a few lines of
+  JavaScript, with feedback in the learner's words.
+- **Helpful errors.** YAML mistakes point to the line, unknown options get
+  "did you mean" suggestions, and failed cells say which cell failed.
+- **A familiar editor.** Syntax highlighting modelled on Positron, shaded code
+  cells and the RStudio render shortcut. Edits are saved in the browser.
 
-```{r}
-#| label: fig-pressure
-#| fig-cap: "Vapor pressure of mercury by temperature."
-#| echo: false
-plot(pressure, type = "b")
-```
+## Vignettes
 
-@fig-pressure shows that vapor pressure rises steeply with temperature.
-````
-:::
+[Get started](vignettes/get-started.qmd)
+: Install the extension, write a playground, and choose its options.
 
-```{quarto-simulator-check}
-#| exercise: ex-cells
-const cell = result.cells.find(c => c.lang === "r")
-if (!cell) return fail("The R code cell is missing. Did it get deleted?")
-if (cell.options.echo !== false) return fail("The code is still showing. Which cell option hides it?")
-const figure = result.html.querySelector('[id^="fig-"]')
-if (!figure) return fail("The plot isn't a cross-referenceable figure yet. Give the cell a `label` that starts with `fig-`.")
-if (!cell.options["fig-cap"]) return fail("Add a `fig-cap` so the figure has a caption.")
-if (!result.html.querySelector("a.quarto-xref")) {
-  return fail("The text doesn't refer to the figure yet. Use `@` followed by the figure's label.")
-}
-return pass("The code is hidden, and the text refers to the figure by number.")
-```
+[Exercises](vignettes/exercises.qmd)
+: Add hints, solutions and checks that grade the learner's document.
 
-## Exercise 3: Fix the YAML
+[R code](vignettes/r-code.qmd)
+: What R cells can do in the browser, and how they differ from knitr.
 
-YAML is strict about indentation and punctuation. This document won't render.
-Press **▶ Render**, read the error message, and fix the header.
+[Python code](vignettes/python-code.qmd)
+: Python cells with IPython in Pyodide: packages, plots, tables and inline code.
 
-````{quarto-simulator}
-#| exercise: ex-yaml
----
-title: "Quarterly report
-author: Jordan
-format:
-  html:
-  toc: true
----
+[Example lesson](vignettes/example-lesson.qmd)
+: A complete lesson with four graded exercises.
 
-## Summary
-
-Sales were up this quarter.
-````
-
-::: {.hint exercise="ex-yaml"}
-There are two problems. Check that every quote you open is closed. Options under `html:` need to be indented further than `html:` itself.
-:::
-
-```{quarto-simulator-check}
-#| exercise: ex-yaml
-if (result.yaml.title !== "Quarterly report") return fail("Check the title: it should read `Quarterly report`.")
-if (result.yaml.format?.html?.toc !== true) {
-  return fail("It renders now, but `toc: true` isn't an option of `html:` yet. Indent it under `html:`.")
-}
-if (!result.html.querySelector("nav#TOC")) return fail("The table of contents isn't showing yet.")
-return pass("The YAML is valid, and the table of contents appears.")
-```
-
-## Exercise 4: Python cells
-
-Python cells work too. Quarto runs them with Jupyter; here they run with
-Python in your browser. Change the document so that:
-
-1. The table is a **cross-referenceable table**: give the cell a label starting with `tbl-` and a `tbl-cap`.
-2. The `???` is replaced by **inline Python code** that computes the average score, rounded to one decimal place.
-
-````{quarto-simulator}
-#| exercise: ex-python
----
-title: "Quiz results"
----
-
-```{python}
-import pandas as pd
-scores = pd.DataFrame({"student": ["Ana", "Ben", "Cy"], "score": [88, 92, 79]})
-scores
-```
-
-The average score was ???.
-````
-
-::: {.hint exercise="ex-python"}
-Table options look like figure options: `#| label: tbl-scores` and `#| tbl-cap: "..."`.
-:::
-
-::: {.hint exercise="ex-python"}
-Inline code is written `` `{python} expression` ``. Try `round(scores["score"].mean(), 1)`.
-:::
-
-::: {.hint exercise="ex-python"}
-pandas returns NumPy numbers, which display as `np.float64(86.3)`. Format the number as
-text instead: `` `{python} f"{scores['score'].mean():.1f}"` ``.
-:::
-
-::: {.solution exercise="ex-python"}
-````markdown
----
-title: "Quiz results"
----
-
-```{python}
-#| label: tbl-scores
-#| tbl-cap: "Quiz scores."
-import pandas as pd
-scores = pd.DataFrame({"student": ["Ana", "Ben", "Cy"], "score": [88, 92, 79]})
-scores
-```
-
-The average score was `{python} f"{scores['score'].mean():.1f}"`.
-````
-:::
-
-```{quarto-simulator-check}
-#| exercise: ex-python
-const cell = result.cells.find(c => c.lang === "python")
-if (!cell) return fail("The Python code cell is missing. Did it get deleted?")
-if (!String(cell.options.label ?? "").startsWith("tbl-")) {
-  return fail("The table isn't cross-referenceable yet. Give the cell a `label` that starts with `tbl-`.")
-}
-if (!cell.options["tbl-cap"]) return fail("Add a `tbl-cap` so the table has a caption.")
-if (result.body.includes("???")) return fail("Replace `???` with inline Python code.")
-if (!/(^|[^`])`\{python\}\s/m.test(result.body)) return fail("Use inline Python code rather than typing the number. It starts with a backtick and `{python}`.")
-if (result.text.includes("np.float64")) {
-  return fail("Python's number shows as `np.float64(...)`. Format it as text, for example with an f-string.")
-}
-if (!result.text.includes("86.3")) return fail("The average shows up, but it isn't 86.3 yet. Did you round to one decimal place?")
-return pass("The table has a number and a caption, and the average is computed by Python.")
-```
+[How it works](vignettes/how-it-works.qmd)
+: What is real Quarto and what is simulated, performance, and hosting notes.

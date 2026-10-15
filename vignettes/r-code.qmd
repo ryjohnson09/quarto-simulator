@@ -1,0 +1,119 @@
+---
+title: "R code"
+description: "What R cells can do in the browser, and how they differ from knitr."
+engine: markdown
+filters:
+  - quarto-simulator
+quarto-simulator:
+  column: page-inset-right
+---
+
+R cells run in [webR](https://docs.r-wasm.org/webr/), a build of R for the
+browser. Real Quarto runs R through knitr; the playground imitates knitr's
+output, producing the same markdown and cell attributes as Quarto's knitr
+hooks, so cell options, figures and cross-references render the way they do
+in Quarto.
+
+webR downloads the first time a playground on the page has R code. After
+that, every playground on the page shares one R session, and each render
+starts with a fresh environment, as a new `quarto render` would.
+
+## Cell options and output
+
+````{quarto-simulator}
+#| height: 520
+---
+title: "Cars"
+---
+
+```{r}
+speeds <- cars$speed
+summary(speeds)
+message("A message, shown like knitr shows it")
+warning("And a warning")
+```
+
+```{r}
+#| label: fig-cars
+#| fig-cap: "Stopping distance increases with speed."
+#| echo: false
+#| fig-width: 6
+#| fig-height: 4
+plot(cars, pch = 19, col = "steelblue")
+```
+
+The fastest car went `{r} max(speeds)` mph. @fig-cars shows all
+`{r} nrow(cars)` cars.
+
+```{r}
+#| error: true
+log(-1)
+stop("This error is shown because of `error: true`")
+```
+````
+
+Supported cell options:
+
+- `echo` (including `echo: fenced`), `eval`, `include`, `output` (including
+  `output: asis`), `warning`, `message` and `error`
+- `label`, `fig-cap`, `fig-alt`, `fig-width` and `fig-height`, also set for the whole
+  document under `execute:` or at the top level
+- `code-fold`, `code-summary`, `code-line-numbers` and `code-overflow`
+- `classes`, `column`, `panel` and `layout-ncol`/`layout-nrow`
+- Header options in knitr style, such as ```` ```{r label, echo=FALSE} ````
+
+Inline code, `` `{r} expr` ``, is evaluated in the same environment as the
+cells. To show a cell verbatim, fences included, double the braces:
+```` ```{{r}} ````.
+
+## Errors
+
+Without `error: true`, an error stops the render, as in Quarto. The message
+says which cell failed and which lines, and suggests `error: true`:
+
+````{quarto-simulator}
+#| height: 260
+---
+title: "Broken"
+---
+
+```{r}
+x <- c(1, 2, 3)
+mean(y)
+```
+````
+
+## Packages
+
+`library()`, `require()` and `pkg::fn()` install packages on first use from
+the [webR package repository](https://repo.r-wasm.org/), which builds most
+of CRAN. The status line shows the progress. Large packages take a while the
+first time, so this playground waits for **▶ Render**:
+
+````{quarto-simulator}
+#| autorender: false
+#| height: 460
+---
+title: "ggplot2"
+---
+
+```{r}
+#| label: fig-mpg
+#| fig-cap: "Fuel economy by engine size."
+#| message: false
+library(ggplot2)
+ggplot(mpg, aes(displ, hwy, colour = class)) +
+  geom_point()
+```
+````
+
+## Differences from knitr
+
+- **Plots** are drawn on webR's canvas device and shown as PNG images. Each
+  plot appears after the last expression that drew on it, as with knitr.
+- **Printing** follows R's own `print()`. Rich output from packages that use
+  `knit_print()` methods (for example `knitr::kable()` tables) prints as text.
+- **Not available:** reading local files, `cache`, `child` documents, other
+  knitr engines (`bash`, `sql`), and `htmlwidgets`.
+- **Infinite loops** can't be interrupted. The learner has to reload the page.
+  Interrupting webR needs cross-origin isolation headers on the site.

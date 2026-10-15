@@ -1,0 +1,158 @@
+---
+title: "Python code"
+description: "Python cells with IPython in Pyodide: packages, plots, tables and inline code."
+engine: markdown
+filters:
+  - quarto-simulator
+quarto-simulator:
+  column: page-inset-right
+---
+
+Python cells run in [Pyodide](https://pyodide.org), a build of Python for the
+browser, inside IPython, the same shell a Jupyter kernel runs. Real Quarto
+renders a Python document with Jupyter: it runs the cells in a kernel, then
+turns the outputs into markdown. The playground does both steps the same way.
+It runs Quarto's own kernel setup code first, and the outputs-to-markdown
+step is ported from Quarto's source. For documents with only Python cells,
+the rendered HTML matches native Quarto.
+
+Python runs in a background worker, so a slow cell never freezes the lesson.
+The first Python render downloads Pyodide and IPython (about 15 MB), plus the
+packages the document imports.
+
+## Output, tables and inline code
+
+````{quarto-simulator}
+#| height: 560
+---
+title: "Quiz results"
+---
+
+```{python}
+import pandas as pd
+
+scores = pd.DataFrame({
+    "student": ["Ana", "Ben", "Cy", "Dee"],
+    "score": [88, 92, 79, 95],
+})
+print(f"{len(scores)} students")
+scores.describe()
+```
+
+```{python}
+#| label: tbl-top
+#| tbl-cap: "Students scoring over 85."
+scores[scores["score"] > 85]
+```
+
+@tbl-top lists the top students. The best score was
+`{python} int(scores["score"].max())`, and the mean was
+`{python} f"{scores['score'].mean():.1f}"`.
+
+```{python}
+#| error: true
+scores["grade"]
+```
+````
+
+As in Jupyter, a cell shows the value of its **last line**, and `display()`
+shows anything earlier. pandas tables, `IPython.display.Markdown` and other
+rich output render as HTML.
+
+::: {.callout-tip}
+## NumPy numbers in inline code
+pandas often returns NumPy numbers, and NumPy 2 displays these as
+`np.float64(86.3)`. That is what real Quarto shows too. Format numbers as
+text, for example with an f-string such as `f"{x:.1f}"`, or convert them with
+`float()` or `int()`.
+:::
+
+## Figures
+
+matplotlib figures appear where `plt.show()` is called, or at the end of the
+cell. Quarto's figure options apply: `label`, `fig-cap`, `fig-subcap`,
+`layout-ncol` and the rest. Figure size comes from `fig-width` and
+`fig-height` in the document's YAML (7 × 5 inches by default), as Quarto's
+kernel setup sets them.
+
+matplotlib is about 13 MB, so this playground waits for **▶ Render**:
+
+````{quarto-simulator}
+#| autorender: false
+#| height: 520
+---
+title: "Waves"
+fig-width: 6
+fig-height: 3.5
+---
+
+```{python}
+#| label: fig-waves
+#| fig-cap: "Two waves."
+#| fig-subcap:
+#|   - "Sine"
+#|   - "Cosine"
+#| layout-ncol: 2
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.linspace(0, 2 * np.pi, 100)
+plt.plot(x, np.sin(x))
+plt.show()
+plt.plot(x, np.cos(x), color="tab:orange")
+plt.show()
+```
+
+@fig-waves shows both.
+````
+
+## Packages
+
+Imports load packages automatically:
+
+1. **Packages included in Pyodide** download on first import. These include
+   numpy, pandas, matplotlib, scipy, scikit-learn and
+   [many more](https://pyodide.org/en/stable/usage/packages-in-pyodide.html).
+2. **Pure-Python packages from PyPI**, such as seaborn, are installed with
+   `micropip` if Pyodide doesn't include them.
+3. Anything else fails with `ModuleNotFoundError`, as a missing package would.
+
+## Stopping long-running code
+
+If a cell runs for more than a second or two, a **■ Stop** button appears.
+Stopping ends the Python session, and the next render starts a fresh one.
+Try it:
+
+````{quarto-simulator}
+#| autorender: false
+#| height: 240
+---
+title: "Forever"
+---
+
+```{python}
+while True:
+    pass
+```
+````
+
+## Supported cell options
+
+- `echo` (including `echo: fenced`), `eval`, `include`, `output` (including
+  `output: asis`), `warning` and `error`, per cell or under `execute:`
+- `label`, `fig-cap`, `fig-subcap`, `fig-alt`, `tbl-cap` and layout options
+- `code-fold`, `code-summary`, `code-line-numbers` and `code-overflow`
+- Inline code, `` `{python} expr` ``
+
+## Differences from Jupyter
+
+- **Warnings** show a short file name (`<ipython-input-3-…>`) where Jupyter
+  shows a temporary file path.
+- **Figures** may differ from native output by a pixel, because fonts differ.
+- **Not available:** reading local files, network access from Python,
+  interactive widgets (ipywidgets, plotly), `input()`, and packages that are
+  neither in Pyodide nor pure Python.
+- **R and Python together.** Quarto renders a document with both through knitr
+  and reticulate. The playground runs both languages, but formats the Python
+  output only approximately, and the languages can't share variables
+  (`py$x`, `r.x`).

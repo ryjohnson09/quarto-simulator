@@ -1,0 +1,42 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 1.10.19
+
+      - name: Install development dependencies
+        run: |
+          npm ci
+          npm ci --prefix tools/vendor
+          npx playwright install --with-deps chromium
+
+      # The committed bundle must match tools/vendor/. If this leaves the tree
+      # dirty, someone edited vendor.js by hand or forgot to rebuild.
+      - name: Check the generated bundle is up to date
+        run: |
+          npm run build
+          git diff --exit-code -- _extensions/quarto-simulator/resources/vendor.js
+
+      - name: Render the site
+        run: quarto render
+
+      # Drives every playground on the rendered site in Chromium. pandoc, webR
+      # and Pyodide download from their CDNs.
+      - run: npm test
