@@ -98,6 +98,25 @@ playgrounds when the lesson itself renders.
 - **A familiar editor.** Syntax highlighting modelled on Positron, shaded code
   cells and the RStudio render shortcut. Edits are saved in the browser.
 
+## What it can't do
+
+- **Formats other than HTML.** A `format: pdf` document previews as HTML,
+  with a notice saying so.
+- **Themes.** `theme` has no effect; the preview uses Quarto's default.
+- **Projects and files.** Each playground is a single document: no
+  multi-file projects, local images or data files, bibliographies or
+  `include` shortcodes.
+- **Other engines and extensions.** Julia, OJS and third-party Quarto
+  extensions don't run.
+- **Everything R and Python can do.** Cells can't read local files, some
+  packages and widgets aren't available, and an infinite loop in R can't be
+  stopped without reloading the page.
+
+[How it works](vignettes/how-it-works.qmd#not-supported) has the full list,
+and [R code](vignettes/r-code.qmd#differences-from-knitr) and
+[Python code](vignettes/python-code.qmd#differences-from-jupyter) cover each
+language.
+
 ## Vignettes
 
 [Get started](vignettes/get-started.qmd)
