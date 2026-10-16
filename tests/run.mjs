@@ -36,7 +36,11 @@ const PAGES = [
 
 // --- A static server for _site/ ------------------------------------------------
 
+// Like hosts that gate files behind cookies or signed URLs (an LMS such as
+// SkillJar), refuse cross-site requests. The preview iframe has an opaque
+// origin, so anything it fetched for itself would be refused here.
 const server = createServer(async (req, res) => {
+  if (req.headers["sec-fetch-site"] === "cross-site") return res.writeHead(403).end("forbidden")
   const path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname)).replace(/^(\.\.[/\\])+/, "")
   const file = join(SITE, path.endsWith("/") ? path + "index.html" : path)
   try {
@@ -138,6 +142,20 @@ for (const path of PAGES) {
     report(shouldFail ? /failed/.test(text) : /Rendered/.test(text), `${path} ${id}`,
       shouldFail ? "fails as intended" : text + (/failed/.test(text) ? ` | ${(await log(sel)).split("\n").slice(0, 3).join(" ")}` : ""))
   }
+}
+
+// --- 1b. The preview is styled, with nothing fetched by the frame itself ------------
+
+console.log("\nPreview styling")
+{
+  await open("index")
+  const sel = `#${await page.locator(".quarto-simulator").first().getAttribute("id")}`
+  await page.locator(sel).scrollIntoViewIfNeeded()
+  await render(sel)
+  const frame = await preview(sel)
+  const font = await frame.locator("body").evaluate(body => getComputedStyle(body).fontFamily)
+  report(!/times/i.test(font), "Quarto's Bootstrap CSS styles the preview", font)
+  report(await frame.locator("link[rel=stylesheet], script[src]").count() === 0, "the preview frame requests no CSS or JavaScript itself")
 }
 
 // --- 2. Exercises: starting documents fail, solutions pass ---------------------------

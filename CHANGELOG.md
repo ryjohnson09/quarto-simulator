@@ -7,6 +7,11 @@
   with Quarto's own styling. `toc-expand` works too. As in Quarto, it is
   hidden when the preview is narrower than 768 pixels.
 - The preview no longer overrides Quarto's page layout and spacing.
+- The preview is styled on hosts that gate files behind cookies or signed
+  URLs, such as SkillJar web packages. The sandboxed preview frame used to
+  request Quarto's CSS and JavaScript itself, and those cross-site requests
+  were refused, leaving the preview unstyled. The host page now fetches them
+  and inlines them into the preview (fonts as data URLs).
 
 ## 0.4.0
 

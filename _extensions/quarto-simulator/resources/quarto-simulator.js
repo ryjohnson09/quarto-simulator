@@ -1006,19 +1006,88 @@ for (const name of ["localStorage", "sessionStorage"]) {
 }
 `
 
+// Quarto's CSS and JavaScript, inlined. The preview iframe is sandboxed with an
+// opaque origin, so its own requests for these files are cross-site. Hosts that
+// gate files behind cookies or signed URLs (SkillJar web packages, for one)
+// refuse them, and the preview renders unstyled. Fetching from the host page,
+// which can reach the files, and inlining avoids any request from the frame.
+// Falls back to the plain tag if a fetch fails.
+let inlinedTagsPromise
+
+async function blobDataUrl(url) {
+  const blob = await fetchOk(url).then(r => r.blob())
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function inlineCss(url) {
+  let css = await fetchOk(url).then(r => r.text())
+  const refs = [...new Set([...css.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)].map(m => m[1]))]
+    .filter(ref => !/^(data:|#)/.test(ref))
+  for (const ref of refs) {
+    try {
+      const dataUrl = await blobDataUrl(new URL(ref, url).href)
+      css = css.split(ref).join(dataUrl)
+    } catch {
+      css = css.split(ref).join(new URL(ref, url).href)
+    }
+  }
+  return css
+}
+
+const escapeScript = text => text.replace(/<\/script/gi, "<\\/script")
+
+async function inlineTag(tag) {
+  const holder = document.createElement("template")
+  holder.innerHTML = tag
+  const node = holder.content.firstElementChild
+  try {
+    if (node?.tagName === "LINK" && node.getAttribute("rel") === "stylesheet") {
+      const id = node.id ? ` id="${node.id}"` : ""
+      return { head: `<style${id}>${await inlineCss(node.href)}</style>` }
+    }
+    if (node?.tagName === "SCRIPT" && node.src) {
+      const html = `<script>${escapeScript(await fetchOk(node.src).then(r => r.text()))}</script>`
+      // Inline scripts can't defer, so deferred ones go at the end of <body>.
+      return node.defer ? { body: html } : { head: html }
+    }
+  } catch {}
+  return { head: tag }
+}
+
+function inlinedHeadTags(headTags) {
+  inlinedTagsPromise ??= (async () => {
+    const libs = asset("quarto-libs/")
+    const tags = [
+      ...headTags.map(tag => tag.replaceAll("{{LIBS}}", libs)),
+      `<link rel="stylesheet" href="${asset("preview-frame.css")}">`
+    ]
+    const parts = await Promise.all(tags.map(inlineTag))
+    return {
+      head: parts.filter(p => p.head).map(p => p.head),
+      body: parts.filter(p => p.body).map(p => p.body)
+    }
+  })()
+  inlinedTagsPromise.catch(() => (inlinedTagsPromise = undefined))
+  return inlinedTagsPromise
+}
+
 // The page pandoc produced from Quarto's template, plus the HTML
 // dependencies Quarto adds to the end of <head> when it writes the file.
-function frameDocument(page, headTags) {
+function frameDocument(page, inlined) {
   const doc = page.cloneNode(true)
   const shim = doc.createElement("script")
   shim.textContent = STORAGE_SHIM
   doc.head.prepend(shim)
-  const libs = asset("quarto-libs/")
   doc.head.insertAdjacentHTML("beforeend", [
-    ...headTags.map(tag => tag.replaceAll("{{LIBS}}", libs)),
-    `<link rel="stylesheet" href="${asset("preview-frame.css")}">`,
+    ...inlined.head,
     ...(doc.querySelector(".mermaid") ? [`<script src="${settings.mermaidUrl}"></script>`] : [])
   ].join("\n"))
+  doc.body.insertAdjacentHTML("beforeend", inlined.body.join("\n"))
   const script = doc.createElement("script")
   script.textContent = FRAME_SCRIPT
   doc.body.appendChild(script)
@@ -1167,7 +1236,7 @@ class Playground {
           }
         })
         this.rendered = { ...result, source, error: null }
-        this.frame.srcdoc = frameDocument(result.page, (await loadQuarto()).bundle.headTags)
+        this.frame.srcdoc = frameDocument(result.page, await inlinedHeadTags((await loadQuarto()).bundle.headTags))
         this.frame.classList.remove("qp-stale")
         this.placeholder.hidden = true
         this.showLog(result.notices, null)
