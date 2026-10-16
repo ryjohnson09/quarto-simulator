@@ -55,8 +55,8 @@ Known differences in the final page:
 The page layout is Quarto's own, so it responds to the preview's width as a
 browser window would. The table of contents, for example, sits in the right
 margin (or wherever `toc-location` says) and, as in Quarto, is hidden when
-the page is narrower than 768 pixels. A `layout: horizontal` preview usually
-is; the default vertical layout is wide enough in a typical lesson.
+the page is narrower than 768 pixels. The default side-by-side preview
+usually is; a `layout: vertical` preview is wide enough in a typical lesson.
 
 ## Not supported
 

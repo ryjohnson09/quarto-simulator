@@ -108,7 +108,7 @@ Options go in `#|` lines at the top of the block, before the document:
 | `exercise`   | none           | ID that links the playground to checks, hints and solutions. See [Exercises](exercises.qmd) |
 | `file`       | none           | Load the starting document from a file, relative to the lesson               |
 | `height`     | `460`          | Height of the editor and of the preview, in pixels                          |
-| `layout`     | `vertical`     | `horizontal` puts the preview beside the editor                             |
+| `layout`     | `horizontal`   | `vertical` stacks the preview under the editor                              |
 | `column`     | body           | A Quarto column, such as `page-inset-right` or `page`                       |
 | `autorender` | `true`         | Render when the playground first scrolls into view                          |
 | `live`       | `false`        | Re-render as the learner types                                              |
@@ -116,37 +116,36 @@ Options go in `#|` lines at the top of the block, before the document:
 
 ### Layout and size
 
-By default the preview sits under the editor, as wide as the playground.
-That leaves room for Quarto's page layout: a table of contents in the right
-margin needs a page at least 768 pixels wide, and Quarto hides it in
-anything narrower.
+By default the preview sits beside the editor, which makes the two easy to
+compare.
 
-`layout: horizontal` puts the preview beside the editor instead. It suits
-short documents on wide pages, and makes the editor and preview easier to
-compare, but the preview is usually too narrow for a table of contents:
+`layout: vertical` puts the preview under the editor instead, as wide as the
+playground. It suits narrow pages and long previews, and leaves room for
+Quarto's page layout: a table of contents in the right margin needs a page
+at least 768 pixels wide, and Quarto hides it in anything narrower.
 
 `````markdown
 ````{quarto-simulator}
-#| layout: horizontal
+#| layout: vertical
 #| height: 260
 #| filename: notes.qmd
 ---
-title: "Side by side"
+title: "Stacked"
 ---
 
-The preview is beside the editor.
+The preview is below the editor.
 ````
 `````
 
 ````{quarto-simulator}
-#| layout: horizontal
+#| layout: vertical
 #| height: 260
 #| filename: notes.qmd
 ---
-title: "Side by side"
+title: "Stacked"
 ---
 
-The preview is beside the editor.
+The preview is below the editor.
 ````
 
 ### Live preview

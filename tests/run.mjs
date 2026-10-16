@@ -162,7 +162,7 @@ for (const id of ["ex-toc", "ex-cells", "ex-python"]) {
   const after = await check(sel)
   report(/^Correct/.test(after), `${id}: solution is accepted`, after)
   if (id === "ex-toc") {
-    // The default vertical layout is wide enough for Quarto's margin TOC.
+    // This exercise's vertical layout is wide enough for Quarto's margin TOC.
     const toc = (await preview(sel)).locator("#quarto-margin-sidebar nav#TOC")
     report(await toc.isVisible(), "ex-toc: the TOC shows in Quarto's right margin")
   }

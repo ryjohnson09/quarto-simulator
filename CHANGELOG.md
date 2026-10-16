@@ -2,9 +2,6 @@
 
 ## Unreleased
 
-- **Playgrounds are vertical by default**: the preview sits under the
-  editor, as wide as the playground. `layout: horizontal` restores the
-  side-by-side layout.
 - The table of contents is placed the way Quarto places it: in the right
   margin, or wherever `toc-location` says (`left`, `body`, `right-body`, …),
   with Quarto's own styling. `toc-expand` works too. As in Quarto, it is

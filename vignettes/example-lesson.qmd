@@ -68,6 +68,7 @@ The YAML header controls how the whole document renders. Update this document so
 
 ````{quarto-simulator}
 #| exercise: ex-toc
+#| layout: vertical
 ---
 title: "Learning Quarto"
 ---

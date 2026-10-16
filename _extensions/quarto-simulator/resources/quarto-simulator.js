@@ -1106,7 +1106,7 @@ class Playground {
       el("div", { class: "qp-pane-header", title: "A simulation of quarto render for learning; not every Quarto feature is supported." }, "Preview (simulated Quarto)"), this.placeholder, this.frame)
 
     const height = Number(opts.height) || 460
-    const panes = el("div", { class: `qp-panes qp-layout-${opts.layout === "horizontal" ? "horizontal" : "vertical"}`, style: `--qp-height: ${height}px` },
+    const panes = el("div", { class: `qp-panes qp-layout-${opts.layout === "vertical" ? "vertical" : "horizontal"}`, style: `--qp-height: ${height}px` },
       editorPane, previewPane)
 
     this.log = el("div", { class: "qp-log", hidden: "" })

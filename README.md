@@ -84,7 +84,7 @@ top:
 | `exercise`   | none           | ID that links the playground to checks, hints and solutions |
 | `file`       | none           | Load the starting document from a file, relative to the lesson |
 | `height`     | `460`          | Height of the editor and of the preview, in pixels         |
-| `layout`     | `vertical`     | `horizontal` puts the preview beside the editor            |
+| `layout`     | `horizontal`   | `vertical` stacks the preview under the editor             |
 | `column`     | body           | A Quarto column, such as `page-inset-right`                |
 | `autorender` | `true`         | Render when the playground first scrolls into view         |
 | `live`       | `false`        | Re-render as the learner types                             |
