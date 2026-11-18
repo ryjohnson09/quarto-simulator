@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.4.1
 
+- Python works in browsers where Pyodide couldn't find its own files
+  ("Could not extract indexURL path from pyodide module location"), such as
+  Firefox with some privacy settings or extensions. The worker now tells
+  Pyodide where it was loaded from.
 - The table of contents is placed the way Quarto places it: in the right
   margin, or wherever `toc-location` says (`left`, `body`, `right-body`, …),
   with Quarto's own styling. `toc-expand` works too. As in Quarto, it is

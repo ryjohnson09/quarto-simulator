@@ -1,6 +1,6 @@
 {
   "name": "quarto-simulator",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Development scripts for the quarto-simulator extension. The extension itself ships as plain files in _extensions/ and needs no build step to use.",
   "license": "MIT",

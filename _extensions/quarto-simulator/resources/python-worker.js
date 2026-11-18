@@ -115,7 +115,12 @@ let pyodide
 
 async function init({ pyodideUrl }) {
   const { loadPyodide } = await import(pyodideUrl)
-  pyodide = await loadPyodide({ stdout: () => {}, stderr: () => {} })
+  // Pass indexURL explicitly: Pyodide otherwise works it out by parsing a
+  // stack trace, which fails in some browsers (e.g. Firefox with certain
+  // privacy settings or extensions) with "Could not extract indexURL path
+  // from pyodide module location".
+  const indexURL = new URL(".", new URL(pyodideUrl, self.location.href)).href
+  pyodide = await loadPyodide({ indexURL, stdout: () => {}, stderr: () => {} })
   await pyodide.loadPackage(["ipython"], { messageCallback: () => {} })
   pyodide.runPython(KERNEL)
 }
